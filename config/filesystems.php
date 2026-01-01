@@ -62,11 +62,11 @@ return [
 
         'servidor_fotos' => [
             'driver' => 'sftp',
-            'host' => '192.168.100.91', // IP de tu otro servidor
-            'username' => 'cta',
-            'password' => '50p0rt3',
-            'root' => '/home/cta/sica/app/SICA/Fotos',
-            'url' => 'http://192.168.100.91/Fotos',
+            'host' => env('SFTP_HOST'), // IP de tu otro servidor
+            'username' => env('SFTP_USER'),
+            'password' => env('SFTP_PASS'),
+            'root' => env('SFTP_ROOT'),
+            'url' => env('SFTP_URL'),
             'visibility' => 'public',
             'perm_public' => 0644, // Archivos: lectura para todos
             'directory_perm_public' => 0755,

@@ -27,6 +27,7 @@ class HorarioForm
                     ->label('Año')
                     ->options(function () {
                         $year = (int) date('Y');
+
                         return [
                             $year => $year,           // 2026
                             $year + 1 => $year + 1,   // 2027
@@ -38,21 +39,27 @@ class HorarioForm
 
                 Select::make('ciclo')->options([
                     'A' => 'A',
-                    'B' => 'B'
+                    'B' => 'B',
                 ])->required(),
+
                 Repeater::make('horarios') // El nombre de la relación definida en el Modelo
                     ->relationship('horarios')
                     ->label('Horarios de Clase')
                     ->schema([
+                Select::make('bloque')->options([
+                    '1' => '1',
+                    '2' => '2',
+                    '0' => '1 y 2'
+                ])->required(),
                         Select::make('dia')
                             ->label('Día')
                             ->options([
                                 'LUNES' => 'LUNES',
                                 'MARTES' => 'Martes',
-                                'MIERCOLES' => 'Miércoles',
-                                'JUEVES' => 'Jueves',
+                                'MIERCOLES' => 'MIERCOLES',
+                                'JUEVES' => 'JUEVES',
                                 'VIERNES' => 'VIERNES',
-                                'SABADO' => 'Sábado',
+                                'SABADO' => 'SABADO',
                             ])
                             ->required(),
                         TextInput::make('aula')->required(),
@@ -62,7 +69,7 @@ class HorarioForm
                             ->seconds(false) // Ocultar segundos si no son necesarios
                             ->required(), // Validación: Fin debe ser después de Inicio
                     ])
-                    ->columns(3) // Para que los 3 campos salgan en una sola fila
+                    ->columns(4) // Para que los 3 campos salgan en una sola fila
                     ->addActionLabel('Agregar horario')
                     ->defaultItems(1)
                     ->grid(1)->columnSpanFull(),

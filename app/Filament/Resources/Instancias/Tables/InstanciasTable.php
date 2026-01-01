@@ -14,9 +14,9 @@ class InstanciasTable
     {
         return $table
             ->columns([
-                TextColumn::make('codigo'),
-                TextColumn::make('nombre'),
-                TextColumn::make('responsable.nombre'),
+                TextColumn::make('codigo')->label('Código')->searchable()->sortable(),
+                TextColumn::make('nombre')->searchable()->sortable(),
+                TextColumn::make('responsable.nombre')->searchable()->sortable(),
             ])
             ->filters([
                 //

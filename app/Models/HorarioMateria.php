@@ -31,8 +31,5 @@ class HorarioMateria extends Model
     {
         return $this->hasMany(HorarioCRN::class, 'crn');
     }
-    
-    protected $casts = [
-        'horarios' => 'array',
-    ];
+
 }
