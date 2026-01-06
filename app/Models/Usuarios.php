@@ -10,8 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Usuarios extends Model
 {
-    protected $table = "usuarios";
+    protected $table = 'usuarios';
+
     protected $primaryKey = 'usuario';
+
     protected $guarded = [];
 
     // Si NO es autoincremental
@@ -29,7 +31,7 @@ class Usuarios extends Model
     // 2. Horario de Trabajo
     public function horario(): HasOne
     {
-        return $this->hasOne(Horario::class,'usuario');
+        return $this->hasOne(Horario::class, 'usuario');
     }
 
     // 3. Asignatura (Condicional)
@@ -79,5 +81,10 @@ class Usuarios extends Model
 
         // O consulta directa si prefieres
         return $this->userType()->where('slug', $slug)->exists();
+    }
+
+    public function estatus(): BelongsTo
+    {
+        return $this->belongsTo(StatusUsuario::class, 'status');
     }
 }
