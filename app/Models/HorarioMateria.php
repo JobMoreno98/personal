@@ -8,12 +8,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HorarioMateria extends Model
 {
-    public $incrementing = false;
-    protected $keyType = 'string';
-
-    // CORRECCIÓN: Esto debe ser UN STRING, no un array.
-    // Ponemos la primera columna solo para que Laravel no se queje.
-    protected $primaryKey = 'usuario';
     protected $guarded = [];
     protected $table = "crn";
     public $timestamps = false;
@@ -29,7 +23,6 @@ class HorarioMateria extends Model
 
     public function horarios(): HasMany
     {
-        return $this->hasMany(HorarioCRN::class, 'crn');
+        return $this->hasMany(HorarioCRN::class, 'crn_id');
     }
-
 }

@@ -7,13 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class HorarioCRN extends Model
 {
     protected $table = "horarioscrn";
-    protected $primaryKey = 'usuario';
     protected $guarded = [];
+    public $timestamps = false;
 
-    // Si NO es autoincremental
-    public $incrementing = false;
-
-    // Si NO es integer (uuid, string, etc.)
-    protected $keyType = 'string';
-
+    public function crnRelacion() // O el nombre que tengas
+    {
+        return $this->belongsTo(HorarioMateria::class, 'crn_id');
+    }
 }
