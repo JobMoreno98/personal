@@ -32,7 +32,7 @@ class UsuariosTable
                 Action::make('exportar')
                     ->label('Generar reporte')
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('success')
+                    ->color('info')
                     ->url(function ($livewire) {
 
                         $departamento = $livewire->getTableFilterState('departamento');
@@ -67,7 +67,7 @@ class UsuariosTable
                     })
                     ->searchable()
                     ->native(false),
-                    
+
                 Filter::make('fecha_reporte')
                     ->default([
                         'fecha' => now()->toDateString(),

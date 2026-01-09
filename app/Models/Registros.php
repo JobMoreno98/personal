@@ -22,10 +22,6 @@ class Registros extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(Usuarios::class, 'usuario', 'usuario')->groupBy('usuario');
+        return $this->belongsTo(Usuarios::class, 'usuario', 'usuario');
     }
-
-    protected $casts = [
-        'fechahora' => 'datetime',
-    ];
 }

@@ -102,11 +102,10 @@ class RegistrosRelationManager extends RelationManager
                             return null;
                         }
                         $fecha = \Carbon\Carbon::parse($record->fechahora)
-                            ->timezone('America/Mexico_City') // MUY IMPORTANTE
+                            ->timezone('America/Mexico_City') 
                             ->format('Y-m-d_H-i-s');
 
                         $path = $record->usuario . '_' . $fecha . '.jpg';
-
 
                         // Verificamos existencia REAL
                         if (! Storage::disk('servidor_capturas')->exists($path)) {

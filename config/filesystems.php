@@ -66,7 +66,7 @@ return [
             'username' => env('SFTP_USER'),
             'password' => env('SFTP_PASS'),
             'root' => env('SFTP_FOTOS'),
-            'url' => env('SFTP_FOTOS_URL'),
+            'url' => '/admin/fotos-perfil',
             'visibility' => 'public',
             'perm_public' => 0644, // Archivos: lectura para todos
             'directory_perm_public' => 0755,

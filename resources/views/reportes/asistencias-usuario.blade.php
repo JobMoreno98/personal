@@ -117,13 +117,22 @@
 
     <main style="clear: both;">
         <div style="width:100%;margin-top:1cm;">
-            <p style="line-height:.8;overflow-wrap: break-word;" class="bold-text text-center">
-                REPORTE DE REGISTROS DE {{ $departamento->nombre }}, <br>
-                PERDIODO DEL {{ $periodo[0] }} AL {{ $periodo[1] }}
-            </p>
+
+            @if (count($usuario) == 1)
+                <p style="line-height:.8;overflow-wrap: break-word;" class="bold-text text-center">
+                    REPORTE DE REGISTROS DE {{ $usuario[0]->nombre }} ({{ $usuario[0]->usuario }}), <br>
+                    PERDIODO DEL {{ $periodo[0] }} AL {{ $periodo[1] }}
+                </p>
+            @else
+                <p style="line-height:.8;overflow-wrap: break-word;" class="bold-text text-center">
+                    REPORTE DE REGISTROS DE {{ $departamento->nombre }}, <br>
+                    PERDIODO DEL {{ $periodo[0] }} AL {{ $periodo[1] }}
+                </p>
+            @endif
+
         </div>
         <div>
-            @foreach ($usuarios as $key => $value)
+            @foreach ($registros as $key => $value)
                 <div class="text-center">
                     <b> Usuario {{ $key }}</b>
                 </div>
@@ -134,24 +143,25 @@
                         <tr>
                             <th>Código</th>
                             <th>Fecha</th>
-                            <th>Hora entarda</th>
-                            <th>Tipo entarda</th>
-                            <th>Hora salida</th>
-                            <th>Tipo Salida</th>
-                            <th>Tiempo trabajado</th>
+                            <th>Hora</th>
+                            <th>Tipo</th>
                         </tr>
                     </thead>
                     <tbody>
 
-                        @foreach ($value as $item => $element)
+                        @foreach ($value as $item)
+                            @php
+                                $fecha = explode(' ', $item['fechahora']);
+                                $entrada = \Carbon\Carbon::parse($fecha[0]);
+                                $salida = \Carbon\Carbon::parse($fecha[1]);
+                                $tiempoTexto = $entrada->diff($salida)->format('%H:%I');
+                            @endphp
                             <tr>
-                                <td>{{ $element['codigo'] }}</td>
-                                <td>{{ $item }}</td>
-                                <td>{{ $element['hora_entrada'] }}</td>
-                                <td>{{ $element['tipo_entrada'] }}</td>
-                                <td>{{ $element['hora_salida'] }}</td>
-                                <td>{{ $element['tipo_salida'] }}</td>
-                                <td>{{ $element['tiempo_total'] }}</td>
+                                <td>{{ $item['usuario'] }}</td>
+
+                                <td>{{ $fecha[0] }}</td>
+                                <td>{{ $fecha[1] }}</td>
+                                <td>{{ $item['tipo'] }}</td>
                             </tr>
                         @endforeach
                     </tbody>

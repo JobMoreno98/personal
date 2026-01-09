@@ -13,12 +13,6 @@ return [
     |
     */
 
-    // ⚠️ NO pongas '/personal/public/livewire'
-    'url' => '/livewire',
-
-    // ⚠️ NO pongas solo '/personal/public'
-    'asset_url' => null,
-
     'class_namespace' => 'App\\Livewire',
 
     /*
@@ -202,4 +196,5 @@ return [
     */
 
     'release_token' => 'a',
+
 ];

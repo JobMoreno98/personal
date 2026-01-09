@@ -24,21 +24,11 @@ class UsuariosForm
                             ->disk('servidor_fotos')
                             ->acceptedFileTypes(['image/jpg'])
                             ->imageEditor()->imageCropAspectRatio('1:1')
-                            ->visibility('public')
                             ->alignCenter()
                             ->image()
-                            ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file, $get) {
-
-                                // Obtenemos el valor del campo 'codigo' del formulario
-                                $nombre = $get('usuario');
-
-                                // Si el código está vacío (por ejemplo en creación), usamos un timestamp
-                                if (! $nombre) {
-                                    $nombre = time();
-                                }
-
-                                // Retornamos: codigo + punto + extensión original (jpg, png, etc)
-                                return (string) $nombre.'.'.$file->getClientOriginalExtension();
+                            ->getUploadedFileNameForStorageUsing(function ($file, $get) {
+                                $nombre = $get('usuario') ?: time();
+                                return (string) $nombre . '.' . $file->getClientOriginalExtension();
                             })
                             ->live(), // Para la foto
                         TextInput::make('usuario')->required()->unique(ignoreRecord: true)->label('Código'),
@@ -67,16 +57,16 @@ class UsuariosForm
                         // Ahora sí, este 'days' se busca en la tabla 'horarios'
                         CheckboxList::make('dias')
                             ->label('Días de trabajo')
-                            ->options([                            
+                            ->options([
                                 '2' => 'Lunes',
                                 '3' => 'Martes',
                                 '4' => 'Miércoles',
                                 '5' => 'Jueves',
                                 '6' => 'Viernes',
                                 '7' => 'Sábado',
-                                 '1' => 'Domingo',
+                                '1' => 'Domingo',
                             ])
-                            ->columns(7)->columnSpanFull(), 
+                            ->columns(7)->columnSpanFull(),
                         TimePicker::make('entrada')->label('Hora Entrada'),
                         TimePicker::make('salida')->label('Hora Salida'),
                         TextInput::make('diasig'),
