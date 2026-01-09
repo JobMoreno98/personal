@@ -19,7 +19,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use AlizHarb\ActivityLog\ActivityLogPlugin;
-
+use Jacobtims\FilamentLogger\FilamentLoggerPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -30,23 +30,21 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->profile(isSimple: false)
             ->colors([
                 'primary' => Color::Purple,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
-                Dashboard::class,
+                //Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])->plugins([
-            ActivityLogPlugin::make()
-                ->label('Log')
-                ->pluralLabel('Logs')
-                ->navigationGroup('System'),
+                FilamentLoggerPlugin::make(),
             ])
             ->middleware([
                 EncryptCookies::class,

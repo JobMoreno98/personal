@@ -87,4 +87,9 @@ class Usuarios extends Model
     {
         return $this->belongsTo(StatusUsuario::class, 'status');
     }
+    public function registros(): HasMany
+    {
+        // Asumiendo que tu tabla de registros tiene 'usuario' como llave foránea
+        return $this->hasMany(Registros::class, 'usuario', 'usuario');
+    }
 }

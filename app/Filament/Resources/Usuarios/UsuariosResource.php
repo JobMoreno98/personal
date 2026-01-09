@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Usuarios;
 use App\Filament\Resources\Usuarios\Pages\CreateUsuarios;
 use App\Filament\Resources\Usuarios\Pages\EditUsuarios;
 use App\Filament\Resources\Usuarios\Pages\ListUsuarios;
+use App\Filament\Resources\Usuarios\RelationManagers\RegistrosRelationManager;
 use App\Filament\Resources\Usuarios\Schemas\UsuariosForm;
 use App\Filament\Resources\Usuarios\Tables\UsuariosTable;
 use App\Models\Usuarios;
@@ -13,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+
 
 class UsuariosResource extends Resource
 {
@@ -35,7 +37,7 @@ class UsuariosResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RegistrosRelationManager::class,
         ];
     }
 

@@ -8,13 +8,13 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
- 
+
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
-  use LogsActivity;
+    use LogsActivity;
 
     /**
      * The attributes that are mass assignable.
@@ -50,10 +50,9 @@ class User extends Authenticatable
         ];
     }
 
-  
+
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->logAll();
+        return LogOptions::defaults()->logAll();
     }
 }

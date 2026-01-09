@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StatusUsuarios\Schemas;
 
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
 class StatusUsuarioForm
@@ -10,7 +11,7 @@ class StatusUsuarioForm
     {
         return $schema
             ->components([
-                //
+                TextInput::make('descripcion')->label('Nombre')->required()->unique()
             ]);
     }
 }
