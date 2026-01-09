@@ -23,7 +23,6 @@ class RegistrosRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-
             ->headerActions([
                 Action::make('exportar')
                     ->label('Generar reporte')

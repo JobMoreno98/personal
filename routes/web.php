@@ -10,3 +10,6 @@ Route::get('/', function () {
 
 Route::get('/reportes/asistencias', [ReporteAsistenciasController::class, 'index'])
     ->name('reportes.asistencias')->middleware('auth');
+
+    Route::get('/reportes/asistencias-departamento', [ReporteAsistenciasController::class, 'departamento'])
+    ->name('reportes.asistencias-departamento')->middleware('auth');
