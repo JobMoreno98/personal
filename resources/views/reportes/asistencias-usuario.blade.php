@@ -84,24 +84,20 @@
             </p>
         </div>
         <div>
-            <div class="text-center">
-                <b>{{ $usuario->nombre }}</b>
-            </div>
-            <hr>
             @foreach ($calendario as $nombreMes => $diasDelMes)
                 <div class="contenedor-mes" class="mt-2">
                     <div class="titulo-mes">{{ $nombreMes }}</div>
                     <table>
                         <thead>
                             <tr>
-                                <th>Lun</th>
-                                <th>Mar</th>
-                                <th>Mié</th>
-                                <th>Jue</th>
-                                <th>Vie</th>
-                                <th>Sáb</th>
-                                <th>Dom</th>
-                                <th>Total semana</th>
+                                <th>Lunes</th>
+                                <th>Martes</th>
+                                <th>Miécoles</th>
+                                <th>Jueves</th>
+                                <th>Viernes</th>
+                                <th>Sábado</th>
+                                <th>Domingo</th>
+                                <th>Total</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -325,6 +321,11 @@
                     <div class="table-cell-new">{{ segundosAHorasMinSeg($cargaSegundos) }} </div>
                 </div>
             </div>
+        </div>
+
+        <div class="text-center bold-text text-uppercase">
+            <p class="border-bottom border-dark " style="height: 100px; "></p>
+            Firma {{ $usuario->nombre }} ({{ $usuario->usuario }})
         </div>
     </main>
 </body>

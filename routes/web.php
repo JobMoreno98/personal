@@ -14,13 +14,13 @@ Route::middleware(['web', Authenticate::class])
     ->prefix('admin')
     ->group(function () {
         Route::get('/reportes/asistencias', [ReporteAsistenciasController::class, 'index'])
-            ->name('reportes.asistencias')->middleware('auth')->prefix('admin');
+            ->name('reportes.asistencias');
 
         Route::get('/reportes/faltas', [ReporteAsistenciasController::class, 'faltas'])
-            ->name('reportes.faltas')->middleware('auth')->prefix('admin');
+            ->name('reportes.faltas');
 
         Route::get('/reportes/asistencias-departamento', [ReporteAsistenciasController::class, 'departamento'])
-            ->name('reportes.asistencias-departamento')->middleware('auth');
+            ->name('reportes.asistencias-departamento');
 
 
         Route::get('/fotos-perfil/{filename}', function ($filename) {
@@ -36,5 +36,5 @@ Route::middleware(['web', Authenticate::class])
                 'Content-Type' => $type,
                 'Cache-Control' => 'public, max-age=86400', // Cache por 1 día
             ]);
-        })->name('storage.proxy')->middleware('auth');
+        })->name('storage.proxy');
     });

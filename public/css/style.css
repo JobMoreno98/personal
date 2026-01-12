@@ -122,22 +122,21 @@ th {
     background-color: #f0f0f0;
     border: 1px solid #ccc;
     padding: 2px;
+    text-align: center;
 }
 
 td {
     border: 1px solid #ccc;
     height: 40px;
-    /* Altura fija para la celda */
     vertical-align: top;
     padding: 2px;
-    width: 14.28%;
-    /* 100% / 7 días */
+    width: 12.5%;
 }
 
 /* Estilos de celda */
 .dia-numero {
     font-weight: bold;
-    font-size: 11px;
+    font-size: 10px;
     text-align: right;
     display: block;
 }
@@ -161,12 +160,10 @@ td {
     color: #008000;
 }
 
-/* Verde oscuro */
 .salida {
     color: #cc0000;
 }
 
-/* Rojo oscuro */
 .tiempo-total {
     background-color: #e6f3ff;
     color: #0056b3;
@@ -188,7 +185,7 @@ td {
 }
 
 .info-bloque {
-    font-size: 12px;
+    font-size: 11px;
     white-space: normal;
     line-height: 1;
 }
