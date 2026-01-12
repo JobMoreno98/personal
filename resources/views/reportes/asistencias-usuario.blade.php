@@ -1,8 +1,49 @@
 @php
     date_default_timezone_set('America/Mexico_City');
     setlocale(LC_TIME, 'es_MX.UTF-8', 'esp');
-    $fechaDia = strftime('%e de %B de %Y', strtotime(date('Y-m-d')));
     $img = asset('images/logo_nuevo.png');
+
+    function tiempoASegundos($tiempo)
+    {
+        $partes = explode(':', $tiempo);
+
+        $h = (int) ($partes[0] ?? 0);
+        $m = (int) ($partes[1] ?? 0);
+        $s = (int) ($partes[2] ?? 0);
+
+        return $h * 3600 + $m * 60 + $s;
+    }
+
+    function segundosAHorasMinSeg($segundos)
+    {
+        $h = intdiv($segundos, 3600);
+        $segundos %= 3600;
+
+        $m = intdiv($segundos, 60);
+        $s = $segundos % 60;
+
+        return sprintf('%02d:%02d:%02d', $h, $m, $s);
+    }
+
+    $total_segundos_reales = 0;
+    $total_segundos_justificados = 0;
+    $total_segundos_festivos = 0;
+    $total_segundos_periodo = 0;
+    $total_periodo = 0;
+
+    $dias_periodo = 0;
+    $dias_laborables = 0;
+    $dias_libres = 0;
+    $dias_asistidos = 0;
+    $dias_faltados = 0;
+    $dias_justificados = 0;
+    $dias_festivos = 0;
+    $dias_con_error = 0;
+    $segundosEntrada = tiempoASegundos($usuario->horario->entrada);
+    $segundosSalida = tiempoASegundos($usuario->horario->salida);
+
+    $cargaSegundos = $segundosSalida - $segundosEntrada;
+    $cargaSemana = $cargaSegundos * count($usuario->horario->dias);
 
 @endphp
 <!DOCTYPE html>
@@ -14,169 +55,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.3/css/bootstrap.css">
-    <style>
-        @font-face {
-            font-family: 'Montserrat';
-            font-style: normal;
-            font-weight: 400;
-            src: url('{{ asset('fonts/Montserrat-Regular.ttf') }}') format('truetype');
-        }
-
-        @font-face {
-            font-family: 'Montserrat';
-            font-style: normal;
-            font-weight: 700;
-            src: url('{{ asset('fonts/Montserrat-Bold.ttf') }}') format('truetype');
-        }
-
-        @font-face {
-            font-family: 'Times New Roman';
-            font-style: normal;
-            font-weight: 700;
-            src: url('{{ asset('fonts/Times New Roman Bold.ttf') }}') format('truetype');
-        }
-
-        body {
-            font-family: 'Montserrat';
-            font-size: 10pt;
-        }
-
-        @page {
-            margin-top: 10px;
-            size: letter;
-            margin-bottom: 50mm;
-        }
-
-        .bold-text {
-            font-weight: bold;
-        }
-
-        #header {
-            position: fixed;
-            top: 0px;
-            left: 0px;
-            right: 0px;
-            height: 50px;
-            line-height: 35px;
-        }
-
-        * {
-            margin-bottom: 0px !important;
-        }
-
-        main {
-            margin-bottom: 40px !important;
-        }
-
-        .pie {
-            font-size: 10px;
-            text-align: center;
-            margin-top: 10px;
-        }
-
-        #footer {
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            text-align: center;
-            border-top: 1px solid gray;
-            /* Borde superior */
-            padding-top: 5px;
-            height: 1.5cm;
-        }
-
-        .titulo {
-            font-family: "Times New Roman", "Monserrat";
-            font-size: 11pt;
-        }
-
-        .text-uppercase {
-            text-transform: uppercase;
-        }
-
-
-        .mes-container {
-            margin-bottom: 20px;
-            page-break-inside: avoid;
-        }
-
-        .titulo-mes {
-            background-color: #333;
-            color: white;
-            text-align: center;
-            padding: 5px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        /* Tabla Calendario */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-
-        th {
-            background-color: #f0f0f0;
-            border: 1px solid #ccc;
-            padding: 4px;
-        }
-
-        td {
-            border: 1px solid #ccc;
-            height: 60px;
-            /* Altura fija para la celda */
-            vertical-align: top;
-            padding: 2px;
-            width: 14.28%;
-            /* 100% / 7 días */
-        }
-
-        /* Estilos de celda */
-        .dia-numero {
-            font-weight: bold;
-            font-size: 11px;
-            text-align: right;
-            display: block;
-        }
-
-        .fin-de-semana {
-            background-color: #fdf2f2;
-            color: #a00;
-        }
-
-        .vacio {
-            background-color: #fafafa;
-        }
-
-        /* Datos de asistencia */
-        .dato-hora {
-            font-size: 9px;
-            margin-bottom: 1px;
-        }
-
-        .entrada {
-            color: #008000;
-        }
-
-        /* Verde oscuro */
-        .salida {
-            color: #cc0000;
-        }
-
-        /* Rojo oscuro */
-        .tiempo-total {
-            background-color: #e6f3ff;
-            color: #0056b3;
-            text-align: center;
-            display: block;
-            margin-top: 2px;
-            border-radius: 4px;
-            padding: 1px;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
-
 
 <body>
     <header id="header">
@@ -197,24 +77,20 @@
     </footer>
 
     <main style="clear: both;">
-        <div style="width:100%;margin-top:1cm;">
+        <div style="width:100%;margin-top:.5cm;">
             <p style="line-height:.8;overflow-wrap: break-word;" class="bold-text text-center">
                 REPORTE DE REGISTROS DE {{ $usuario->nombre }} ({{ $usuario->usuario }}), <br>
                 PERDIODO DEL {{ $periodo[0] }} AL {{ $periodo[1] }}
             </p>
-
-
         </div>
         <div>
             <div class="text-center">
-                <b> Usuario {{ $usuario->nombre }}</b>
+                <b>{{ $usuario->nombre }}</b>
             </div>
             <hr>
-
             @foreach ($calendario as $nombreMes => $diasDelMes)
-                <div class="contenedor-mes">
+                <div class="contenedor-mes" class="mt-2">
                     <div class="titulo-mes">{{ $nombreMes }}</div>
-
                     <table>
                         <thead>
                             <tr>
@@ -225,6 +101,7 @@
                                 <th>Vie</th>
                                 <th>Sáb</th>
                                 <th>Dom</th>
+                                <th>Total semana</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -239,6 +116,9 @@
                                     // Restamos 1 porque el array visual empieza en índice 0
                                     $espaciosVacios = $fechaObj->dayOfWeekIso - 1;
                                     $contadorCeldas = 0;
+                                    $total_semana = 0.0;
+                                    $total_mes = 0.0;
+
                                 @endphp
 
                                 {{-- Pintamos celdas grises vacías hasta llegar al día 1 --}}
@@ -256,65 +136,195 @@
             @endif
 
             @php
+                $dias_periodo++;
                 $esFin = $item['fecha']->isWeekend();
-            @endphp
 
+                if (!$item['es_laboral']) {
+                    $dias_libres++;
+                } elseif ($item['es_laboral']) {
+                    $dias_laborables++;
+                }
+            @endphp
             <td class="{{ $esFin ? 'fin-de-semana' : '' }}">
-                {{-- Número del día --}}
                 <span class="dia-numero" style="color: {{ $esFin ? '#e53e3e' : '#2d3748' }}">
                     {{ $item['fecha']->day }}
                 </span>
+                @php
+
+                    if ($item['detalle']) {
+                        $dias_asistidos++;
+
+                        $seg = tiempoASegundos($item['detalle']['tiempo']);
+                        $total_segundos_reales += $seg;
+                    }
+                    if ($item['estado'] === 'Justificado') {
+                        $dias_justificados++;
+                        $total_segundos_justificados += 8 * 3600;
+                    }
+
+                    if ($item['es_laboral'] && !$item['estado'] === 'Justificado') {
+                        $dias_faltados++;
+                    }
+
+                    if ($item['estado'] === 'FALTA') {
+                        $dias_faltados++;
+                    }
+                    if ($item['festivo'] && $item['es_laboral']) {
+                        $dias_festivos++;
+                    }
+                @endphp
 
                 @if ($item['detalle'])
+                    @php
+                        $total_semana += tiempoASegundos($item['detalle']['tiempo']);
+                        $total_mes += tiempoASegundos($item['detalle']['tiempo']);
+                        $total_periodo += $total_semana;
+                    @endphp
                     {{-- CASO: SI HAY ASISTENCIA --}}
                     <div class="info-bloque">
-                        <span class="hora-row"><span class="lbl">E:</span>{{ $item['detalle']['entrada'] }}</span>
+                        <span class="hora-row"><span class="lbl">E - </span>{{ $item['detalle']['entrada'] }}</span>
                         <br>
-                        <span class="hora-row"><span class="lbl">S:</span>{{ $item['detalle']['salida'] }}</span>
+                        <span class="hora-row"><span class="lbl">S - </span>{{ $item['detalle']['salida'] }}</span>
                     </div>
 
                     {{-- Badge Estado (Retardo, Salida Anticipada) --}}
-                    <div class="badge" style="background-color: {{ $item['color'] }}">
+                    <div class="badge-multiline" style="background-color: {{ $item['color'] }}">
                         {!! $item['estado'] !!}
                     </div>
-
-                    {{-- Tiempo Trabajado --}}
                     <div class="tiempo-total">
                         {{ $item['detalle']['tiempo'] }} h
                     </div>
                 @else
                     {{-- CASO: SIN REGISTROS --}}
-                    @if ($item['estado'] && $item['estado'] != 'EN CURSO')
-                        {{-- Badge Falta, Descanso, etc --}}
-                        <div class="badge"
+                    @if ($item['estado'] && $item['estado'] != 'EN CURSO' && $item['es_laboral'])
+                        <div class="badge-multiline"
+                            style="background-color: {{ $item['color'] }}; margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#555' : 'white' }}">
+                            {{ $item['estado'] }}
+                        </div>
+                    @else
+                        <div class="badge-multiline"
                             style="background-color: {{ $item['color'] }}; margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#555' : 'white' }}">
                             {{ $item['estado'] }}
                         </div>
                     @endif
                 @endif
             </td>
+            @php
+                $esDomingo = $item['fecha']->dayOfWeekIso == 7;
+            @endphp
 
-            @php $contadorCeldas++; @endphp
+            @if ($esDomingo)
+                <td class="total-semana-col">
+                    {{ segundosAHorasMinSeg($total_semana) }} hrs.
+                </td>
+                @php
+                    $contadorCeldas++; // ← MUY IMPORTANTE
+                    $total_semana = 0;
+                @endphp
+            @endif
+
+            @php
+                if (!$esDomingo) {
+                    $contadorCeldas++;
+                }
+            @endphp
             @endforeach
 
             {{-- 3. RELLENO FINAL (Estético) --}}
             {{-- Completamos la fila con vacíos hasta que sea múltiplo de 7 --}}
-            @while ($contadorCeldas % 7 != 0)
-                <td class="celda-vacia"></td>
-                @php $contadorCeldas++; @endphp
-            @endwhile
+            @if ($contadorCeldas % 7 != 0)
+                {{-- celdas vacías hasta llegar al domingo --}}
+                @while ($contadorCeldas % 7 != 0)
+                    <td class="celda-vacia"></td>
+                    @php $contadorCeldas++; @endphp
+                @endwhile
+
+                {{-- columna total semana --}}
+                <td class="total-semana-col">
+                    {{ segundosAHorasMinSeg($total_semana) }} hrs.
+                </td>
+                @php
+                    $contadorCeldas++;
+                    $total_semana = 0;
+                @endphp
+            @endif
+
+
             </tr>
             </tbody>
             </table>
         </div>
-        @endforeach
-
+        <div class="text-right">
+            Total mes: {{ segundosAHorasMinSeg($total_mes) }} hrs.
         </div>
-        <div class="text-center">
-            <b> Fuente:</b> <span class="text-uppercase"> CUCSH. Secretaria Administrativa, Coordinación de Personal
-            </span>
-            <br>
-            <b> Corte:</b> {{ $fechaDia }}
+        @endforeach
+        </div>
+        <div class="table-new">
+            <div class="table-header-new">
+                <div class="table-row-new">
+                    <div class="table-cell-new" colspan="4">TOTALES</div>
+                </div>
+            </div>
+            <div class="table-body-new">
+                <div class="table-row-new">
+                    <div class="table-cell-new" colspan="2">DIAS</div>
+                    <div class="table-cell-new" colspan="2">HORAS</div>
+                </div>
+                <div class="table-row-new">
+                    <div class="table-cell-new">Días Periodo</div>
+                    <div class="table-cell-new">{{ $dias_periodo }}</div>
+                    <div class="table-cell-new">Carga horaria por semana</div>
+                    <div class="table-cell-new">{{ segundosAHorasMinSeg($cargaSemana) }}</div>
+                </div>
+                <div class="table-row-new">
+                    <div class="table-cell-new">Días laborales</div>
+                    <div class="table-cell-new">{{ $dias_laborables }}</div>
+                    <div class="table-cell-new">Carga por periodo</div>
+                    <div class="table-cell-new">
+                        {{ segundosAHorasMinSeg(($dias_periodo - $dias_libres) * $cargaSegundos) }}</div>
+                </div>
+                <div class="table-row-new">
+                    <div class="table-cell-new"> Días libres</div>
+                    <div class="table-cell-new">{{ $dias_libres }}</div>
+                    <div class="table-cell-new">Reales registradas (sin contar dias con errores)</div>
+                    <div class="table-cell-new">
+                        {{ segundosAHorasMinSeg($total_segundos_reales) }}</div>
+                </div>
+                <div class="table-row-new">
+                    <div class="table-cell-new">Días asistidos</div>
+                    <div class="table-cell-new">{{ $dias_asistidos }} </div>
+                    <div class="table-cell-new">Justificadas</div>
+                    <div class="table-cell-new"> {{ segundosAHorasMinSeg($total_segundos_justificados) }}</div>
+                </div>
+                <div class="table-row-new">
+                    <div class="table-cell-new">Días faltados</div>
+                    <div class="table-cell-new">{{ $dias_faltados }} </div>
+                    <div class="table-cell-new">Días Festivos o especiales </div>
+                    <div class="table-cell-new"> {{ segundosAHorasMinSeg($dias_festivos * $cargaSegundos) }}</div>
+                </div>
+                <div class="table-row-new">
+                    <div class="table-cell-new"> Días Justificados</div>
+                    <div class="table-cell-new">{{ $dias_justificados }} </div>
+                    <div class="table-cell-new">Reales + justificadas + festivos </div>
+                    <div class="table-cell-new">
+                        {{ segundosAHorasMinSeg(($dias_justificados + $dias_festivos) * $cargaSegundos + $total_segundos_reales) }}
+                    </div>
+                </div>
+                <div class="table-row-new">
+                    <div class="table-cell-new"> Días Festivos</div>
+                    <div class="table-cell-new">{{ $dias_festivos }} </div>
+                    <div class="table-cell-new">Reales + justificadas + festivos </div>
+                    <div class="table-cell-new">
+                        {{ segundosAHorasMinSeg(($dias_justificados + $dias_festivos) * $cargaSegundos + $total_segundos_reales) }}
+                    </div>
+                </div>
+                <div class="table-row-new">
+                    <div class="table-cell-new" colspan="2"> </div>
+
+                    <div class="table-cell-new" style="text-align: end"> Carga horaria por día </div>
+                    <div class="table-cell-new">{{ segundosAHorasMinSeg($cargaSegundos) }} </div>
+                </div>
+            </div>
         </div>
     </main>
 </body>

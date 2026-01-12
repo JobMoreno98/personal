@@ -11,6 +11,7 @@ class Horario extends Model
     protected $table = "horariousuarios";
     protected $primaryKey = 'usuario';
     protected $guarded = [];
+    public $timestamps = false;
 
     // Si NO es autoincremental
     public $incrementing = false;

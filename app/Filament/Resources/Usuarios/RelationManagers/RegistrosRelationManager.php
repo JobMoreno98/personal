@@ -25,7 +25,7 @@ class RegistrosRelationManager extends RelationManager
         return $table
             ->headerActions([
                 Action::make('exportar')
-                    ->label('Generar reporte')
+                    ->label('Generar reporte por periodo')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
                     ->url(function ($livewire) {
@@ -44,7 +44,28 @@ class RegistrosRelationManager extends RelationManager
                         return filled($filtro['desde'] ?? null)
                             && filled($filtro['hasta'] ?? null);
                     }),
+                Action::make('exportar')
+                    ->label('Generar faltas por periodo')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->url(function ($livewire) {
+                        $filtro = $livewire->getTableFilterState('rango_fechas');
+
+                        return route('reportes.faltas', [
+                            'usuario' => $livewire->getOwnerRecord()->usuario,
+                            'desde' => $filtro['desde'] ?? null,
+                            'hasta' => $filtro['hasta'] ?? null,
+                        ]);
+                    })
+                    ->openUrlInNewTab()
+                    ->visible(function ($livewire) {
+                        $filtro = $livewire->getTableFilterState('rango_fechas');
+
+                        return filled($filtro['desde'] ?? null)
+                            && filled($filtro['hasta'] ?? null);
+                    }),
             ])
+
             ->deferLoading()
             ->emptyStateHeading('Selecciona un rango de fechas')
             ->filters([
@@ -102,7 +123,7 @@ class RegistrosRelationManager extends RelationManager
                             return null;
                         }
                         $fecha = \Carbon\Carbon::parse($record->fechahora)
-                            ->timezone('America/Mexico_City') 
+                            ->timezone('America/Mexico_City')
                             ->format('Y-m-d_H-i-s');
 
                         $path = $record->usuario . '_' . $fecha . '.jpg';

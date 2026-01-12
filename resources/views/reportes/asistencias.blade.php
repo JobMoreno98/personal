@@ -124,45 +124,51 @@
         </div>
         <div>
             @foreach ($usuarios as $key => $value)
-                <div class="text-center">
-                    <b> Usuario {{ $key }}</b>
-                </div>
-                <hr>
-
-                <table class="m-auto" style="width:100%">
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Fecha</th>
-                            <th>Hora entarda</th>
-                            <th>Tipo entarda</th>
-                            <th>Hora salida</th>
-                            <th>Tipo Salida</th>
-                            <th>Tiempo trabajado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-
-                        @foreach ($value as $item => $element)
+                <div class="border my-2">
+                    <div class="text-center border-bottom py-1 my-0">
+                        <b>{{ $value['nombre'] }}</b>
+                    </div>
+                    <table class="m-auto px-2 text-center" style="width:100%">
+                        <thead>
                             <tr>
-                                <td>{{ $element['codigo'] }}</td>
-                                <td>{{ $item }}</td>
-                                <td>{{ $element['hora_entrada'] }}</td>
-                                <td>{{ $element['tipo_entrada'] }}</td>
-                                <td>{{ $element['hora_salida'] }}</td>
-                                <td>{{ $element['tipo_salida'] }}</td>
-                                <td>{{ $element['tiempo_total'] }}</td>
+                                <th>Código</th>
+                                <th>Hora entarda</th>
+                                <th>Tipo entarda</th>
+                                <th>Hora salida</th>
+                                <th>Tipo Salida</th>
+                                <th>Tiempo trabajado</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @forelse ($value['dias'] as $item => $element)
+                                <tr>
+                                    <td>{{ $element['codigo'] }}</td>
+                                    <td>{{ $element['hora_entrada'] }}</td>
+                                    <td>{{ $element['tipo_entrada'] }}</td>
+                                    <td>{{ $element['hora_salida'] }}</td>
+                                    <td>{{ $element['tipo_salida'] }}</td>
+                                    <td>{{ $element['tiempo_total'] }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td>{{ $value['codigo'] }}</td>
+                                    <td>{{ 'Sin registro' }}</td>
+                                    <td>{{ 'Sin registro' }}</td>
+                                    <td>{{ 'Sin registro' }}</td>
+                                    <td>{{ 'Sin registro' }}</td>
+                                    <td>{{ 'Sin registro' }}</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             @endforeach
         </div>
         <div class="text-center">
             <b> Fuente:</b> <span class="text-uppercase"> CUCSH. Secretaria Administrativa, Coordinación de Personal
             </span>
             <br>
-            <b> Corte:</b> {{ $fechaDia }}
+            <b> Reporte realizado:</b> {{ $fechaDia }}
         </div>
     </main>
 </body>

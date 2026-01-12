@@ -16,6 +16,9 @@ Route::middleware(['web', Authenticate::class])
         Route::get('/reportes/asistencias', [ReporteAsistenciasController::class, 'index'])
             ->name('reportes.asistencias')->middleware('auth')->prefix('admin');
 
+        Route::get('/reportes/faltas', [ReporteAsistenciasController::class, 'faltas'])
+            ->name('reportes.faltas')->middleware('auth')->prefix('admin');
+
         Route::get('/reportes/asistencias-departamento', [ReporteAsistenciasController::class, 'departamento'])
             ->name('reportes.asistencias-departamento')->middleware('auth');
 
