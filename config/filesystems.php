@@ -62,15 +62,19 @@ return [
 
         'servidor_fotos' => [
             'driver' => 'sftp',
-            'host' => env('SFTP_HOST'), // IP de tu otro servidor
-            'username' => env('SFTP_USER'),
+            'host' => env('SFTP_HOST', '192.168.100.91'),
+            'username' => env('SFTP_USER', 'cta'),
             'password' => env('SFTP_PASS'),
             'root' => env('SFTP_FOTOS'),
-            'url' => '/admin/fotos-perfil',
+            'url' => '/personal/public/admin/fotos-perfil',
+            'port' => 22,
+            'timeout' => 30,
             'visibility' => 'public',
             'perm_public' => 0644, // Archivos: lectura para todos
             'directory_perm_public' => 0755,
         ],
+
+
         'servidor_capturas' => [
             'driver' => 'sftp',
             'host' => env('SFTP_HOST'), // IP de tu otro servidor

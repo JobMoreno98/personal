@@ -447,7 +447,8 @@
     return null;
   }
   function getUpdateUri() {
-    return document.querySelector("[data-update-uri]")?.getAttribute("data-update-uri") ?? window.livewireScriptConfig["uri"] ?? null;
+    console.log('aqui estoy' + document.querySelector("[data-update-uri]")?.getAttribute("data-update-uri"));
+    return '/personal/public/livewire/update' ?? '/personal/public/livewire/update' ?? null;
   }
   function contentIsFromDump(content) {
     return !!content.match(/<script>Sfdump\(".+"\)<\/script>/);

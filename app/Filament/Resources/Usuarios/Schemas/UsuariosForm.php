@@ -9,7 +9,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Intervention\Image\Laravel\Facades\Image;
+use Illuminate\Support\Facades\Storage;
 
 class UsuariosForm
 {
@@ -20,17 +21,36 @@ class UsuariosForm
                 Section::make('Información Personal')
                     ->schema([
                         FileUpload::make('photo_path')
-                            ->label('Foto de Perfil')->avatar()->columnSpanFull()
+                            ->label('Foto de Perfil')
+                            ->avatar()
+                            ->columnSpanFull()
                             ->disk('servidor_fotos')
-                            ->acceptedFileTypes(['image/jpg'])
-                            ->imageEditor()->imageCropAspectRatio('1:1')
+                            ->acceptedFileTypes(['image/jpg', 'image/jpeg', 'image/png'])
+                            ->imageEditor()
+
                             ->alignCenter()
                             ->image()
                             ->getUploadedFileNameForStorageUsing(function ($file, $get) {
                                 $nombre = $get('usuario') ?: time();
-                                return (string) $nombre . '.' . $file->getClientOriginalExtension();
+                                $fileName = (string)$nombre . '.' . $file->getClientOriginalExtension();
+
+                                // 1️⃣ Obtener ruta temporal real que Livewire creó
+                                $tmpPath = $file->getRealPath(); // NO usar move()
+
+                                // 2️⃣ Procesar con Intervention Image
+                                $img = Image::read($tmpPath);
+                                $img->orient()
+                                    
+                                    ->encodeByExtension($file->getClientOriginalExtension(), 90) // <--- CORRECTO en v3
+                                    ->save($tmpPath);
+
+                                // 3️⃣ Subir procesada al disco SFTP
+                                $sftpDisk = Storage::disk('servidor_fotos');
+                                $sftpDisk->putFileAs('', new \Illuminate\Http\File($tmpPath), $fileName);
+
+                                return $fileName;
                             })
-                            ->live(), // Para la foto
+                            ->live(),
                         TextInput::make('usuario')->required()->unique(ignoreRecord: true)->label('Código'),
                         TextInput::make('nombre')->required(),
 

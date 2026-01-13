@@ -38,3 +38,5 @@ Route::middleware(['web', Authenticate::class])
             ]);
         })->name('storage.proxy');
     });
+
+
