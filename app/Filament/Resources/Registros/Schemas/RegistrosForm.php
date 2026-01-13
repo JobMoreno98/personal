@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Registros\Schemas;
 
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
 class RegistrosForm
@@ -10,7 +11,7 @@ class RegistrosForm
     {
         return $schema
             ->components([
-                //
+                TextInput::make('usuario')->readOnly()
             ]);
     }
 }
