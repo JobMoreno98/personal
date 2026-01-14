@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Registros\Schemas;
 
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Filament\Forms\Components\Placeholder;
 
 class RegistrosForm
 {
@@ -11,7 +12,9 @@ class RegistrosForm
     {
         return $schema
             ->components([
-                TextInput::make('usuario')->readOnly()
+                Placeholder::make('user.nombre')
+                    ->label('Usuario')
+                    ->content(fn($record) => $record?->user?->nombre),
             ]);
     }
 }

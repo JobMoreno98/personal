@@ -9,7 +9,7 @@ class Registros extends Model
 {
     protected $guarded = [];
     protected $table = "registrosfull";
-
+    public $timestamps = false;
 
     public function getFotoUrlAttribute()
     {
