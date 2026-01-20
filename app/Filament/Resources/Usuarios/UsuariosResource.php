@@ -22,7 +22,7 @@ class UsuariosResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $recordTitleAttribute = 'Usuarios';
+    protected static ?string $recordTitleAttribute = 'Empleados';
 
     public static function form(Schema $schema): Schema
     {
