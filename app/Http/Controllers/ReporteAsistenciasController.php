@@ -25,7 +25,13 @@ class ReporteAsistenciasController extends Controller
 
 
         $usuario = Usuarios::with(['horario'])->where('usuario', $request->usuario)->first();
+
         if (!$usuario) {
+            abort(404);
+        }
+        $horario_usuario = Horario::where('usuario', $request->usuario)->first();
+
+        if (!$horario_usuario) {
             abort(404);
         }
 
@@ -126,11 +132,11 @@ class ReporteAsistenciasController extends Controller
         $dompdf = $pdf->getDomPDF();
         $canvas = $dompdf->get_canvas();
         $width = $canvas->get_width();
-        $fechaDia = strftime('%e de %B de %Y', strtotime(date('Y-m-d')));
+
         $x_center = ($width / 2) - 50;
 
-        $canvas->page_text($x_center, 730, "Fuente: CUCSH. Secretaria Administrativa, Coordinación de Personal.", null, 8, [0, 0, 0]);
-        $canvas->page_text($x_center, 740, "Fecha: " . $fechaDia, null, 8, [0, 0, 0]);
+        //$canvas->page_text($x_center, 730, "Fuente: CUCSH. Secretaria Administrativa, Coordinación de Personal.", null, 8, [0, 0, 0]);
+        //$canvas->page_text($x_center, 740, "Fecha: " . $fechaDia, null, 8, [0, 0, 0]);
         $canvas->page_text($x_center, 750, "Parres Arias No. 150 Los Belenes C.P. 45132.", null, 8, [0, 0, 0]);
         $canvas->page_text(100, 760, "www.cucsh.udg.mx", null, 11, "#7D91BE");
         $canvas->page_text($x_center, 760, "Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700", null, 8, [0, 0, 0]);
@@ -344,7 +350,7 @@ class ReporteAsistenciasController extends Controller
     private function evaluarDiaSinRegistro(Carbon $fecha, bool $esDiaLaboral): array
     {
         if (!$esDiaLaboral) {
-            return ['DESCANSO', '#eeeeee', null];
+            return ['DESCANSO', '#000', null];
         }
 
         if ($fecha->lt(Carbon::today())) {

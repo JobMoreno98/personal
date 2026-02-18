@@ -2,7 +2,7 @@
     date_default_timezone_set('America/Mexico_City');
     setlocale(LC_TIME, 'es_MX.UTF-8', 'esp');
     $img = asset('images/logo_nuevo.png');
-
+    $fechaDia = strftime('%e de %B de %Y', strtotime(date('Y-m-d')));
     function tiempoASegundos($tiempo)
     {
         $partes = explode(':', $tiempo);
@@ -78,7 +78,7 @@
 
     <main style="clear: both;">
         <div style="width:100%;margin-top:.5cm;">
-            <p style="line-height:.8;overflow-wrap: break-word;" class="bold-text text-center">
+            <p style="line-height:.8;overflow-wrap: break-word; text-align: center;" class="bold-text text-center">
                 REPORTE DE REGISTROS DE {{ $usuario->nombre }} ({{ $usuario->usuario }}), <br>
                 PERDIODO DEL {{ $periodo[0] }} AL {{ $periodo[1] }}
             </p>
@@ -184,22 +184,36 @@
                     </div>
 
                     {{-- Badge Estado (Retardo, Salida Anticipada) --}}
-                    <div class="badge-multiline" style="background-color: {{ $item['color'] }}">
+                    <div class="badge-multiline">
+                        <span style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">
+                            &nbsp;
+                        </span>
                         {!! $item['estado'] !!}
                     </div>
-                    <div class="tiempo-total">
+                    <div class="tiempo-total" >
+                        <span style="background-color: #0056b3; width:5px;heigth:3px;border-radius:50%">
+                            &nbsp;
+                        </span>
                         {{ $item['detalle']['tiempo'] }} h
                     </div>
                 @else
                     {{-- CASO: SIN REGISTROS --}}
                     @if ($item['estado'] && $item['estado'] != 'EN CURSO' && $item['es_laboral'])
                         <div class="badge-multiline"
-                            style="background-color: {{ $item['color'] }}; margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#555' : 'white' }}">
+                            style="margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#000' : 'black' }}">
+                            <span
+                                style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">
+                                &nbsp;
+                            </span>
                             {{ $item['estado'] }}
                         </div>
                     @else
                         <div class="badge-multiline"
-                            style="background-color: {{ $item['color'] }}; margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#555' : 'white' }}">
+                            style="margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#000' : 'black' }}">
+                            <span
+                                style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">
+                                &nbsp;
+                            </span>
                             {{ $item['estado'] }}
                         </div>
                     @endif
@@ -250,7 +264,7 @@
             </tbody>
             </table>
         </div>
-        <div class="text-right">
+        <div class="text-right" style="font-size: 12px;">
             Total mes: {{ segundosAHorasMinSeg($total_mes) }} hrs.
         </div>
         @endforeach
@@ -309,9 +323,9 @@
                 <div class="table-row-new">
                     <div class="table-cell-new"> Días Festivos</div>
                     <div class="table-cell-new">{{ $dias_festivos }} </div>
-                    <div class="table-cell-new">Reales + justificadas + festivos </div>
+                    <div class="table-cell-new"></div>
                     <div class="table-cell-new">
-                        {{ segundosAHorasMinSeg(($dias_justificados + $dias_festivos) * $cargaSegundos + $total_segundos_reales) }}
+
                     </div>
                 </div>
                 <div class="table-row-new">
@@ -322,10 +336,12 @@
                 </div>
             </div>
         </div>
+        <div class="text-center bold-text text-uppercase" style="text-align: center;">
+            <p class="border-bottom border-dark " style="height: 100px; border-bottom:gray solid 1px;"></p>
 
-        <div class="text-center bold-text text-uppercase">
-            <p class="border-bottom border-dark " style="height: 100px; "></p>
-            Firma {{ $usuario->nombre }} ({{ $usuario->usuario }})
+            Firma {{ $usuario->nombre }} ({{ $usuario->usuario }}) <br>
+            Fuente: CUCSH. Secretaria Administrativa, Coordinación de Personal. <br>
+            Fecha: {{ $fechaDia }}
         </div>
     </main>
 </body>
