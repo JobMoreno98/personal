@@ -165,99 +165,107 @@ class ReporteAsistenciasController extends Controller
             'departamento' => ['required'],
             'fecha' => ['required', 'date']
         ]);
+
         $departamento = $request->departamento;
-        $fecha        = $request->fecha;
 
+        $fechaConsulta = Carbon::parse($request->fecha)->timezone('America/Mexico_City');
 
-        $inicio = Carbon::parse($fecha)->startOfDay()->timezone('America/Mexico_City')->format('Y-m-d H:i:s');
-        $fin    = Carbon::parse($fecha)->endOfDay()->timezone('America/Mexico_City')->format('Y-m-d H:i:s');
+        // CORRECCIÓN: Quitamos el timezone('UTC') para buscar exactamente por la hora local
+        $inicio = $fechaConsulta->copy()->startOfDay()->format('Y-m-d H:i:s');
+        $fin    = $fechaConsulta->copy()->endOfDay()->format('Y-m-d H:i:s');
 
-        // Ejemplo
+        // Día de la semana (1 = Domingo, ..., 7 = Sábado) para cruzarlo con el horario
+        $numeroDiaSemana = (string) ($fechaConsulta->dayOfWeek + 1);
+
+        // Obtenemos solo los IDs de los usuarios de ese departamento
         $idsUsuarios = Usuarios::select('usuario')->whereHas(
             'instance',
-            fn($q) =>
-            $q->where('codigo', $departamento)
-        )->get()->pluck('usuario');
-        //return $idsUsuarios;
-        //return [$inicio, $fin];
+            fn($q) => $q->where('codigo', $departamento)
+        )->pluck('usuario');
 
-        $registrosRaw = Usuarios::with(['registros' => function ($query) use ($inicio, $fin) {
-            $query->whereBetween('fechahora', [$inicio, $fin])
-                ->orderBy('fechahora');
-        }])
-            ->whereIn('usuario', $idsUsuarios) // o la PK correcta
+        // Traemos a los usuarios con sus horarios y SUS REGISTROS FILTRADOS en una sola consulta
+        $registrosRaw = Usuarios::with([
+            'horarios',
+            'registros' => function ($query) use ($inicio, $fin) {
+                $query->whereBetween('fechahora', [$inicio, $fin])
+                    ->orderBy('fechahora');
+            }
+        ])
+            ->whereIn('usuario', $idsUsuarios)
             ->get();
 
-        //return $registrosRaw;
+        // Mapeamos y estructuramos la información
+        $usuarios = $registrosRaw->map(function ($user) use ($numeroDiaSemana, $fechaConsulta) {
 
-        $usuarios = $registrosRaw->map(function ($user, $fecha) {
+            // 1. Verificamos si hoy le tocaba trabajar revisando sus bloques de horarios
+            $esDiaLaboral = false;
+            foreach ($user->horarios as $bloque) {
+                $diasArray = is_array($bloque->dias) ? $bloque->dias : str_split($bloque->dias ?? '');
+                if (in_array($numeroDiaSemana, $diasArray)) {
+                    $esDiaLaboral = true;
+                    break;
+                }
+            }
 
+            // 2. Si no checó tarjeta en todo el día
             if ($user->registros->isEmpty()) {
                 return [
-                    'nombre' => $user->nombre,
-                    'dias' => [],
+                    'nombre'        => $user->nombre,
+                    'codigo'        => $user->usuario,
                     'sin_registros' => true,
-                    'codigo'       => $user->usuario,
-
+                    'es_laboral'    => $esDiaLaboral, // Puedes usar esto en tu vista para pintar rojo (falta) o gris (descanso)
+                    'dias'          => [],
                 ];
             }
 
+            // 3. Si sí tiene registros, sacamos el primero y el último
+            $entrada = $user->registros->first();
+            $salida  = $user->registros->last();
+            $cantidadRegistros = $user->registros->count();
+
+            $hora_entrada = Carbon::parse($entrada->fechahora)->setTimezone('America/Mexico_City');
+
+            // Si solo checó 1 vez, la salida es nula. Si checó 2 o más, tomamos la última.
+            $hora_salida = ($cantidadRegistros > 1)
+                ? Carbon::parse($salida->fechahora)->setTimezone('America/Mexico_City')
+                : null;
+
+            $tiempo_total = '00:00:00';
+            if ($hora_salida) {
+                $tiempo_total = $hora_entrada->diff($hora_salida)->format('%H:%I:%S');
+            }
+
+            // Mantenemos la estructura 'dias' para no romper tu vista blade actual
+            $fechaString = $fechaConsulta->format('Y-m-d');
+
             return [
-                'nombre' => $user->nombre,
-                'dias' => $user->registros
-                    ->groupBy(function ($registro) {
-                        return Carbon::parse($registro->fechahora)
-                            ->setTimezone('America/Mexico_City')
-                            ->format('Y-m-d');
-                    })
-                    ->map(function ($registrosDelDia, $fecha) use ($user) {
-                        if ($user->registros->isEmpty()) {
-                            dd($user);
-                            return [
-                                'nombre' => $user->nombre,
-                                'dias' => [],
-                                'sin_registros' => true,
-                            ];
-                        }
-                        $entrada = $registrosDelDia->first();
-                        $salida  = $registrosDelDia->last();
-                        $hora_salida = Carbon::parse($salida->fechahora)
-                            ->setTimezone('America/Mexico_City')
-                            ->format('H:i:s');
-
-                        $tipo_salida = $salida->tipo;
-
-                        $tiempo = Carbon::parse($entrada->fechahora)
-                            ->setTimezone('America/Mexico_City')
-                            ->diff(
-                                Carbon::parse($salida->fechahora)
-                                    ->setTimezone('America/Mexico_City')
-                            )
-                            ->format('%H:%I:%S');
-
-
-                        return [
-                            'fecha'        => $fecha,
-                            'hora_entrada' => Carbon::parse($entrada->fechahora)
-                                ->setTimezone('America/Mexico_City')
-                                ->format('H:i:s'),
-                            'tipo_entrada' => $entrada->tipo,
-                            'hora_salida'  => $hora_salida,
-                            'tipo_salida'  => $tipo_salida,
-                            'tiempo_total' => $tiempo,
-                            'detalle_raw'  => $registrosDelDia->count(),
-                            'codigo'       => $user->usuario,
-                        ];
-                    })
+                'nombre'        => $user->nombre,
+                'codigo'        => $user->usuario,
+                'sin_registros' => false,
+                'es_laboral'    => $esDiaLaboral,
+                'dias'          => [
+                    $fechaString => [
+                        'fecha'        => $fechaString,
+                        'hora_entrada' => $hora_entrada->format('H:i:s'),
+                        'tipo_entrada' => $entrada->tipo,
+                        'hora_salida'  => $hora_salida ? $hora_salida->format('H:i:s') : 'SIN CHECAR',
+                        'tipo_salida'  => $hora_salida ? $salida->tipo : null,
+                        'tiempo_total' => $tiempo_total,
+                        'detalle_raw'  => $cantidadRegistros,
+                    ]
+                ]
             ];
         });
 
-        //dd($usuarios);
+        $periodo = [$fechaConsulta->format('Y-m-d'), $fechaConsulta->format('Y-m-d')];
+        $departamentoInfo = Instancias::select('nombre')->where('codigo', $departamento)->first();
 
-        $periodo = [$inicio, $fin];
-        $departamento = Instancias::select('nombre')->where('codigo', $departamento)->first();
-        $html = view('reportes.asistencias', compact('usuarios', 'periodo', 'departamento'));
-        //return $html;
+        $html = view('reportes.asistencias', [
+            'usuarios'     => $usuarios,
+            'periodo'      => $periodo,
+            'departamento' => $departamentoInfo
+        ]);
+
         $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
             ->setOptions([
                 'defaultFont' => 'Montserrat',
@@ -277,7 +285,6 @@ class ReporteAsistenciasController extends Controller
         $canvas->page_text($x_center, 770, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, [0, 0, 0]);
 
         return $pdf->stream();
-        return view('reportes.asistencias', compact('registros'));
     }
 
 
@@ -288,7 +295,7 @@ class ReporteAsistenciasController extends Controller
         return in_array((string) $claveDiaUsuario, $diasLaborales, true);
     }
 
-private function resolverEstadoDia(
+    private function resolverEstadoDia(
         Carbon $fecha,
         $datosDia,
         bool $esDiaLaboral,
