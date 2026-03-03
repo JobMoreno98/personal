@@ -40,7 +40,7 @@ class UsuariosForm
                                 $img = Image::read($tmpPath);
                                 $img->orient()
 
-                                    ->encodeByExtension($file->getClientOriginalExtension(), 90) // <--- CORRECTO en v3
+                                    ->encodeByExtension($file->getClientOriginalExtension(), 90)
                                     ->save($tmpPath);
                                 $sftpDisk = Storage::disk('servidor_fotos');
                                 $sftpDisk->putFileAs('', new \Illuminate\Http\File($tmpPath), $fileName);
@@ -61,8 +61,6 @@ class UsuariosForm
                             ->relationship('estatus', 'descripcion')
                             ->required()
                             ->reactive(), // Para ocultar/mostrar cosas según la selección
-
-                        // Relación con Instancia
                         Select::make('departamento')
                             ->relationship('instance', 'nombre')->label('Instancia')
                             ->searchable()
@@ -84,14 +82,51 @@ class UsuariosForm
                                 '7' => 'Sábado',
                             ])
                             ->columns(2)
-                            //->inline(false)
-                            ->required(),
+                            ->required()
+                            // Añadimos la validación para evitar días duplicados en el repeater
+                            ->rule(
+                                fn($get) => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    // Obtenemos todos los horarios del repeater
+                                    $todosLosHorarios = $get('../../horarios') ?? [];
+
+                                    // CORRECCIÓN: Buscamos el ID correcto de forma dinámica.
+                                    // El atributo siempre termina en "...UUID.dias", así que tomamos el penúltimo elemento.
+                                    $partesPath = explode('.', $attribute);
+                                    $currentId = $partesPath[count($partesPath) - 2] ?? null;
+
+                                    foreach ($todosLosHorarios as $id => $horario) {
+                                        // Ahora sí ignoramos correctamente el bloque que estamos editando
+                                        if ((string) $id === (string) $currentId) continue;
+
+                                        $diasEnOtroBloque = $horario['dias'] ?? [];
+
+                                        // Comparamos los días
+                                        $diasRepetidos = array_intersect($value ?? [], $diasEnOtroBloque);
+
+                                        if (!empty($diasRepetidos)) {
+                                            $nombresDias = [
+                                                '1' => 'Domingo',
+                                                '2' => 'Lunes',
+                                                '3' => 'Martes',
+                                                '4' => 'Miércoles',
+                                                '5' => 'Jueves',
+                                                '6' => 'Viernes',
+                                                '7' => 'Sábado'
+                                            ];
+
+                                            $nombres = array_map(fn($d) => $nombresDias[$d] ?? $d, $diasRepetidos);
+
+                                            $fail('Día(s) duplicado(s): ' . implode(', ', $nombres) . '. Ya están en otro bloque.');
+                                        }
+                                    }
+                                }
+                            ),
 
                         Section::make()->label('Horas')->schema([
                             TimePicker::make('entrada')->label('Hora Entrada')->seconds(false)->required(),
                             TimePicker::make('salida')->label('Hora Salida')->seconds(false)->required(),
-                        ])
-                        //Toggle::make('diasig')->label('Termina al día siguiente'),
+                            TextInput::make('diasig')->label('Termina al día siguiente'),
+                        ])->collapsible()->collapsed()
                     ])
                     ->columns(2)
                     ->collapsible()
@@ -100,6 +135,7 @@ class UsuariosForm
                         $dias = array_map(fn($d) => $diasMap[$d] ?? $d, $state['dias'] ?? []);
                         return implode(',', $dias) . ' → ' . ($state['entrada'] ?? '') . ' a ' . ($state['salida'] ?? '');
                     })->columnSpanFull()
+                    ->collapsed()
                     ->columns(2)
                     ->collapsible()
             ]);
