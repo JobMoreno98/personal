@@ -30,9 +30,9 @@ class Usuarios extends Model
     }
 
     // 2. Horario de Trabajo
-    public function horario(): HasOne
+    public function horarios(): HasMany
     {
-        return $this->hasOne(Horario::class, 'usuario');
+        return $this->hasMany(Horario::class, 'usuario');
     }
 
     // 3. Asignatura (Condicional)
@@ -93,4 +93,5 @@ class Usuarios extends Model
         // Asumiendo que tu tabla de registros tiene 'usuario' como llave foránea
         return $this->hasMany(Registros::class, 'usuario', 'usuario');
     }
+
 }

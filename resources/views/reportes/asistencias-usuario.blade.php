@@ -39,8 +39,8 @@
     $dias_justificados = 0;
     $dias_festivos = 0;
     $dias_con_error = 0;
-    $segundosEntrada = tiempoASegundos($usuario->horario->entrada);
-    $segundosSalida = tiempoASegundos($usuario->horario->salida);
+    $segundosEntrada = tiempoASegundos($usuario->horarios->entrada);
+    $segundosSalida = tiempoASegundos($usuario->horarios->salida);
 
     $cargaSegundos = $segundosSalida - $segundosEntrada;
     $cargaSemana = $cargaSegundos * count($usuario->horario->dias);

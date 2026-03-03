@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\Usuarios\Schemas;
 
+use App\Models\User;
+use App\Models\Usuarios;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
@@ -33,18 +36,12 @@ class UsuariosForm
                             ->getUploadedFileNameForStorageUsing(function ($file, $get) {
                                 $nombre = $get('usuario') ?: time();
                                 $fileName = (string)$nombre . '.' . $file->getClientOriginalExtension();
-
-                                // 1️⃣ Obtener ruta temporal real que Livewire creó
                                 $tmpPath = $file->getRealPath(); // NO usar move()
-
-                                // 2️⃣ Procesar con Intervention Image
                                 $img = Image::read($tmpPath);
                                 $img->orient()
-                                    
+
                                     ->encodeByExtension($file->getClientOriginalExtension(), 90) // <--- CORRECTO en v3
                                     ->save($tmpPath);
-
-                                // 3️⃣ Subir procesada al disco SFTP
                                 $sftpDisk = Storage::disk('servidor_fotos');
                                 $sftpDisk->putFileAs('', new \Illuminate\Http\File($tmpPath), $fileName);
 
@@ -71,28 +68,40 @@ class UsuariosForm
                             ->searchable()
                             ->preload(),
                     ])->columns(2)->columnSpanFull(),
-                Section::make('Horario Laboral')
-                    ->relationship('horario') // <--- Vincula esta sección al modelo Horario
+
+                Repeater::make('horarios')
+                    ->relationship('horarios')
                     ->schema([
-                        // Ahora sí, este 'days' se busca en la tabla 'horarios'
                         CheckboxList::make('dias')
                             ->label('Días de trabajo')
                             ->options([
+                                '1' => 'Domingo',
                                 '2' => 'Lunes',
                                 '3' => 'Martes',
                                 '4' => 'Miércoles',
                                 '5' => 'Jueves',
                                 '6' => 'Viernes',
                                 '7' => 'Sábado',
-                                '1' => 'Domingo',
                             ])
-                            ->columns(7)->columnSpanFull(),
-                        TimePicker::make('entrada')->label('Hora Entrada'),
-                        TimePicker::make('salida')->label('Hora Salida'),
-                        TextInput::make('diasig'),
+                            ->columns(2)
+                            //->inline(false)
+                            ->required(),
 
-                    ])->columns(3)
-                    ->collapsed()->columnSpanFull(),
+                        Section::make()->label('Horas')->schema([
+                            TimePicker::make('entrada')->label('Hora Entrada')->seconds(false)->required(),
+                            TimePicker::make('salida')->label('Hora Salida')->seconds(false)->required(),
+                        ])
+                        //Toggle::make('diasig')->label('Termina al día siguiente'),
+                    ])
+                    ->columns(2)
+                    ->collapsible()
+                    ->itemLabel(function (array $state): ?string {
+                        $diasMap = ['1' => 'Domingo', '2' => 'Lunes', '3' => 'Martes', '4' => 'Miércoles', '5' => 'Jueves', '6' => 'Viernes', '7' => 'Sábado'];
+                        $dias = array_map(fn($d) => $diasMap[$d] ?? $d, $state['dias'] ?? []);
+                        return implode(',', $dias) . ' → ' . ($state['entrada'] ?? '') . ' a ' . ($state['salida'] ?? '');
+                    })->columnSpanFull()
+                    ->columns(2)
+                    ->collapsible()
             ]);
     }
 }

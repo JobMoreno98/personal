@@ -24,6 +24,7 @@ Route::middleware(['web', Authenticate::class])
 
 
         Route::get('/fotos-perfil/{filename}', function ($filename) {
+            
             $disk = Storage::disk('servidor_fotos');
             if (! $disk->exists($filename)) {
                 abort(404);

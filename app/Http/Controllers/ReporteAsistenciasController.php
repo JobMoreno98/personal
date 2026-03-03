@@ -24,7 +24,7 @@ class ReporteAsistenciasController extends Controller
         ]);
 
 
-        $usuario = Usuarios::with(['horario'])->where('usuario', $request->usuario)->first();
+        $usuario = Usuarios::with(['horarios'])->where('usuario', $request->usuario)->first();
 
         if (!$usuario) {
             abort(404);
