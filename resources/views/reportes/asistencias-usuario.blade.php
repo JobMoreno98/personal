@@ -3,14 +3,16 @@
     setlocale(LC_TIME, 'es_MX.UTF-8', 'esp');
     $img = asset('images/logo_nuevo.png');
     $fechaDia = strftime('%e de %B de %Y', strtotime(date('Y-m-d')));
+
     function tiempoASegundos($tiempo)
     {
+        if (!$tiempo) {
+            return 0;
+        }
         $partes = explode(':', $tiempo);
-
         $h = (int) ($partes[0] ?? 0);
         $m = (int) ($partes[1] ?? 0);
         $s = (int) ($partes[2] ?? 0);
-
         return $h * 3600 + $m * 60 + $s;
     }
 
@@ -18,18 +20,16 @@
     {
         $h = intdiv($segundos, 3600);
         $segundos %= 3600;
-
         $m = intdiv($segundos, 60);
         $s = $segundos % 60;
-
         return sprintf('%02d:%02d:%02d', $h, $m, $s);
     }
 
+    // VARIABLES TOTALES
     $total_segundos_reales = 0;
     $total_segundos_justificados = 0;
     $total_segundos_festivos = 0;
-    $total_segundos_periodo = 0;
-    $total_periodo = 0;
+    $total_esperado_periodo = 0; // NUEVO: Suma dinámica de horas del periodo
 
     $dias_periodo = 0;
     $dias_laborables = 0;
@@ -39,13 +39,33 @@
     $dias_justificados = 0;
     $dias_festivos = 0;
     $dias_con_error = 0;
-    $segundosEntrada = tiempoASegundos($usuario->horarios->entrada);
-    $segundosSalida = tiempoASegundos($usuario->horarios->salida);
 
-    $cargaSegundos = $segundosSalida - $segundosEntrada;
-    $cargaSemana = $cargaSegundos * count($usuario->horario->dias);
+    // 1. NUEVA LÓGICA: MAPEO DE HORARIOS POR DÍA
+    $cargaSemana = 0;
+    $cargaPorDia = []; // Guardará cuántos segundos debe trabajar el Lunes(1), Martes(2)...
+
+    foreach ($usuario->horarios as $horario) {
+        $segEntrada = tiempoASegundos($horario->entrada);
+        $segSalida = tiempoASegundos($horario->salida);
+        $cargaBloque = $segSalida - $segEntrada;
+
+        $diasArray = is_array($horario->dias) ? $horario->dias : str_split($horario->dias ?? '');
+
+        foreach ($diasArray as $dia) {
+            $cargaPorDia[$dia] = $cargaBloque;
+            $cargaSemana += $cargaBloque;
+        }
+    }
+
+    // Determinamos el texto de la carga diaria por si los horarios varían entre días
+    $cargasUnicas = array_unique(array_values($cargaPorDia));
+    $textoCargaDiaria =
+        count($cargasUnicas) === 1 && count($cargasUnicas) > 0
+            ? segundosAHorasMinSeg($cargasUnicas[0])
+            : 'Variable según día';
 
 @endphp
+
 <!DOCTYPE html>
 <html lang="es">
 
@@ -104,20 +124,14 @@
                             <tr>
                                 {{-- 1. LÓGICA DE RELLENO INICIAL --}}
                                 @php
-                                    // Tomamos la fecha del primer elemento de este grupo
                                     $primerItem = $diasDelMes[0];
                                     $fechaObj = $primerItem['fecha'];
-
-                                    // Calculamos espacios vacíos (Lunes=1 ... Domingo=7)
-                                    // Restamos 1 porque el array visual empieza en índice 0
                                     $espaciosVacios = $fechaObj->dayOfWeekIso - 1;
                                     $contadorCeldas = 0;
                                     $total_semana = 0.0;
                                     $total_mes = 0.0;
-
                                 @endphp
 
-                                {{-- Pintamos celdas grises vacías hasta llegar al día 1 --}}
                                 @for ($i = 0; $i < $espaciosVacios; $i++)
                                     <td class="celda-vacia"></td>
                                     @php $contadorCeldas++; @endphp
@@ -125,7 +139,6 @@
 
                                 {{-- 2. DÍAS DEL MES --}}
                                 @foreach ($diasDelMes as $item)
-                                    {{-- Si ya llenamos 7 celdas, cerramos fila y abrimos nueva --}}
                                     @if ($contadorCeldas > 0 && $contadorCeldas % 7 == 0)
                             </tr>
                             <tr>
@@ -135,90 +148,86 @@
                 $dias_periodo++;
                 $esFin = $item['fecha']->isWeekend();
 
+                // Extraemos qué día de la semana es y cuántas horas le tocan
+                $diaSemanaIso = $item['fecha']->dayOfWeekIso; // 1=Lun, 7=Dom
+                $cargaEsperadaHoy = $cargaPorDia[(string) $diaSemanaIso] ?? 0;
+
                 if (!$item['es_laboral']) {
                     $dias_libres++;
-                } elseif ($item['es_laboral']) {
+                } else {
                     $dias_laborables++;
+                    $total_esperado_periodo += $cargaEsperadaHoy;
+                }
+
+                // Contabilidad Dinámica
+                // Contabilidad Dinámica
+                if (is_array($item['detalle'])) {
+                    $dias_asistidos++;
+                    $seg = tiempoASegundos($item['detalle']['tiempo']);
+                    $total_segundos_reales += $seg;
+                } elseif (is_string($item['detalle'])) {
+                    // Si fue a trabajar en día libre, lo contamos como asistido pero sin sumar horas estándar
+                    $dias_asistidos++;
+                }
+
+                if ($item['estado'] === 'Justificado') {
+                    $dias_justificados++;
+                    $total_segundos_justificados += $cargaEsperadaHoy;
+                }
+
+                if ($item['estado'] === 'FALTA' && $item['es_laboral']) {
+                    $dias_faltados++;
+                }
+
+                if ($item['festivo'] && $item['es_laboral']) {
+                    $dias_festivos++;
+                    $total_segundos_festivos += $cargaEsperadaHoy;
                 }
             @endphp
+
             <td class="{{ $esFin ? 'fin-de-semana' : '' }}">
                 <span class="dia-numero" style="color: {{ $esFin ? '#e53e3e' : '#2d3748' }}">
                     {{ $item['fecha']->day }}
                 </span>
-                @php
 
-                    if ($item['detalle']) {
-                        $dias_asistidos++;
-
-                        $seg = tiempoASegundos($item['detalle']['tiempo']);
-                        $total_segundos_reales += $seg;
-                    }
-                    if ($item['estado'] === 'Justificado') {
-                        $dias_justificados++;
-                        $total_segundos_justificados += 8 * 3600;
-                    }
-
-                    if ($item['es_laboral'] && !$item['estado'] === 'Justificado') {
-                        $dias_faltados++;
-                    }
-
-                    if ($item['estado'] === 'FALTA') {
-                        $dias_faltados++;
-                    }
-                    if ($item['festivo'] && $item['es_laboral']) {
-                        $dias_festivos++;
-                    }
-                @endphp
-
-                @if ($item['detalle'])
+                @if (is_array($item['detalle']))
                     @php
                         $total_semana += tiempoASegundos($item['detalle']['tiempo']);
                         $total_mes += tiempoASegundos($item['detalle']['tiempo']);
-                        $total_periodo += $total_semana;
                     @endphp
-                    {{-- CASO: SI HAY ASISTENCIA --}}
                     <div class="info-bloque">
                         <span class="hora-row"><span class="lbl">E - </span>{{ $item['detalle']['entrada'] }}</span>
                         <br>
                         <span class="hora-row"><span class="lbl">S - </span>{{ $item['detalle']['salida'] }}</span>
                     </div>
 
-                    {{-- Badge Estado (Retardo, Salida Anticipada) --}}
                     <div class="badge-multiline">
-                        <span style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">
-                            &nbsp;
-                        </span>
+                        <span
+                            style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">&nbsp;</span>
                         {!! $item['estado'] !!}
                     </div>
-                    <div class="tiempo-total" >
-                        <span style="background-color: #0056b3; width:5px;heigth:3px;border-radius:50%">
-                            &nbsp;
-                        </span>
+                    <div class="tiempo-total">
+                        <span style="background-color: #0056b3; width:5px;heigth:3px;border-radius:50%">&nbsp;</span>
                         {{ $item['detalle']['tiempo'] }} h
                     </div>
                 @else
-                    {{-- CASO: SIN REGISTROS --}}
-                    @if ($item['estado'] && $item['estado'] != 'EN CURSO' && $item['es_laboral'])
+                    @if ($item['estado'] && $item['estado'] != 'EN CURSO')
                         <div class="badge-multiline"
                             style="margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#000' : 'black' }}">
                             <span
-                                style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">
-                                &nbsp;
-                            </span>
+                                style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">&nbsp;</span>
                             {{ $item['estado'] }}
                         </div>
-                    @else
-                        <div class="badge-multiline"
-                            style="margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#000' : 'black' }}">
-                            <span
-                                style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">
-                                &nbsp;
-                            </span>
-                            {{ $item['estado'] }}
-                        </div>
+                        @if (is_string($item['detalle']))
+                            {{-- Pintamos el mensaje de "Registro en día de descanso" --}}
+                            <div style="font-size: 9px; text-align: center; margin-top: 5px; color: #198754;">
+                                {{ $item['detalle'] }}
+                            </div>
+                        @endif
                     @endif
                 @endif
             </td>
+
             @php
                 $esDomingo = $item['fecha']->dayOfWeekIso == 7;
             @endphp
@@ -228,7 +237,7 @@
                     {{ segundosAHorasMinSeg($total_semana) }} hrs.
                 </td>
                 @php
-                    $contadorCeldas++; // ← MUY IMPORTANTE
+                    $contadorCeldas++;
                     $total_semana = 0;
                 @endphp
             @endif
@@ -240,16 +249,12 @@
             @endphp
             @endforeach
 
-            {{-- 3. RELLENO FINAL (Estético) --}}
-            {{-- Completamos la fila con vacíos hasta que sea múltiplo de 7 --}}
             @if ($contadorCeldas % 7 != 0)
-                {{-- celdas vacías hasta llegar al domingo --}}
                 @while ($contadorCeldas % 7 != 0)
                     <td class="celda-vacia"></td>
                     @php $contadorCeldas++; @endphp
                 @endwhile
 
-                {{-- columna total semana --}}
                 <td class="total-semana-col">
                     {{ segundosAHorasMinSeg($total_semana) }} hrs.
                 </td>
@@ -258,8 +263,6 @@
                     $total_semana = 0;
                 @endphp
             @endif
-
-
             </tr>
             </tbody>
             </table>
@@ -269,6 +272,8 @@
         </div>
         @endforeach
         </div>
+
+        {{-- TABLA DE TOTALES DINÁMICA --}}
         <div class="table-new">
             <div class="table-header-new">
                 <div class="table-row-new">
@@ -290,55 +295,50 @@
                     <div class="table-cell-new">Días laborales</div>
                     <div class="table-cell-new">{{ $dias_laborables }}</div>
                     <div class="table-cell-new">Carga por periodo</div>
-                    <div class="table-cell-new">
-                        {{ segundosAHorasMinSeg(($dias_periodo - $dias_libres) * $cargaSegundos) }}</div>
+                    <div class="table-cell-new">{{ segundosAHorasMinSeg($total_esperado_periodo) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new"> Días libres</div>
                     <div class="table-cell-new">{{ $dias_libres }}</div>
                     <div class="table-cell-new">Reales registradas (sin contar dias con errores)</div>
-                    <div class="table-cell-new">
-                        {{ segundosAHorasMinSeg($total_segundos_reales) }}</div>
+                    <div class="table-cell-new">{{ segundosAHorasMinSeg($total_segundos_reales) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new">Días asistidos</div>
                     <div class="table-cell-new">{{ $dias_asistidos }} </div>
                     <div class="table-cell-new">Justificadas</div>
-                    <div class="table-cell-new"> {{ segundosAHorasMinSeg($total_segundos_justificados) }}</div>
+                    <div class="table-cell-new">{{ segundosAHorasMinSeg($total_segundos_justificados) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new">Días faltados</div>
                     <div class="table-cell-new">{{ $dias_faltados }} </div>
                     <div class="table-cell-new">Días Festivos o especiales </div>
-                    <div class="table-cell-new"> {{ segundosAHorasMinSeg($dias_festivos * $cargaSegundos) }}</div>
+                    <div class="table-cell-new">{{ segundosAHorasMinSeg($total_segundos_festivos) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new"> Días Justificados</div>
                     <div class="table-cell-new">{{ $dias_justificados }} </div>
                     <div class="table-cell-new">Reales + justificadas + festivos </div>
                     <div class="table-cell-new">
-                        {{ segundosAHorasMinSeg(($dias_justificados + $dias_festivos) * $cargaSegundos + $total_segundos_reales) }}
+                        {{ segundosAHorasMinSeg($total_segundos_justificados + $total_segundos_festivos + $total_segundos_reales) }}
                     </div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new"> Días Festivos</div>
                     <div class="table-cell-new">{{ $dias_festivos }} </div>
                     <div class="table-cell-new"></div>
-                    <div class="table-cell-new">
-
-                    </div>
+                    <div class="table-cell-new"></div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new" colspan="2"> </div>
-
                     <div class="table-cell-new" style="text-align: end"> Carga horaria por día </div>
-                    <div class="table-cell-new">{{ segundosAHorasMinSeg($cargaSegundos) }} </div>
+                    <div class="table-cell-new">{{ $textoCargaDiaria }}</div>
                 </div>
             </div>
         </div>
+
         <div class="text-center bold-text text-uppercase" style="text-align: center;">
             <p class="border-bottom border-dark " style="height: 100px; border-bottom:gray solid 1px;"></p>
-
             Firma {{ $usuario->nombre }} ({{ $usuario->usuario }}) <br>
             Fuente: CUCSH. Secretaria Administrativa, Coordinación de Personal. <br>
             Fecha: {{ $fechaDia }}

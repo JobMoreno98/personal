@@ -23,15 +23,16 @@ class ReporteAsistenciasController extends Controller
             'hasta' => ['required', 'date'],
         ]);
 
-
         $usuario = Usuarios::with(['horarios'])->where('usuario', $request->usuario)->first();
 
         if (!$usuario) {
             abort(404);
         }
-        $horario_usuario = Horario::where('usuario', $request->usuario)->first();
 
-        if (!$horario_usuario) {
+        // 1. Obtenemos TODOS los bloques de horarios del usuario
+        $horarios_usuario = Horario::where('usuario', $request->usuario)->get();
+
+        if ($horarios_usuario->isEmpty()) {
             abort(404);
         }
 
@@ -51,18 +52,29 @@ class ReporteAsistenciasController extends Controller
                     ->format('Y-m-d');
             });
 
+        // 2. Creamos un mapa de horarios. 
+        // Llave = Día de la semana (1 a 7), Valor = Arreglo con entrada y salida
+        $mapaHorarios = [];
+        $todosLosDiasLaborales = [];
 
-        $horario_usuario = Horario::where('usuario', $request->usuario)->first();
-        // dd("Entarda " . $horario_usuario->entrada, "Salida " . $horario_usuario->salida, "Días de trabajo " , ($horario_usuario->dias));
+        foreach ($horarios_usuario as $bloque) {
+            // Como tu mutador devuelve un array o un string, aseguramos que sea un array iterable
+            $dias = is_array($bloque->dias) ? $bloque->dias : str_split($bloque->dias);
 
+            foreach ($dias as $dia) {
+                $mapaHorarios[$dia] = [
+                    'entrada' => $bloque->entrada,
+                    'salida'  => $bloque->salida
+                ];
+                $todosLosDiasLaborales[] = $dia;
+            }
+        }
+
+        // Limpiamos duplicados por si acaso
+        $todosLosDiasLaborales = array_unique($todosLosDiasLaborales);
 
         $periodo = CarbonPeriod::create($inicio, $fin);
         $calendario = [];
-
-        // Aseguramos que los horarios vengan limpios (ej: "08:00:00")
-        $horarioEntradaStr = $horario_usuario->entrada;
-        $horarioSalidaStr  = $horario_usuario->salida;
-        $diasLaborales     = $horario_usuario->dias; // Array ej: ["2", "3", "4" ...]
         $minutosTolerancia = 40;
 
         $eventos = Evento::whereDate('inicio', '<=', $periodo->last())
@@ -74,7 +86,6 @@ class ReporteAsistenciasController extends Controller
             $fin    = Carbon::parse($evento->fin)->startOfDay();
 
             return collect(CarbonPeriod::create($inicio, $fin))->map(function ($fecha) use ($evento) {
-
                 return [
                     'fecha' => $fecha->format('Y-m-d'),
                     'tipo'  => $evento->tipo_evento->nombre,
@@ -82,22 +93,29 @@ class ReporteAsistenciasController extends Controller
             });
         })->groupBy('fecha');
 
-
-
         foreach ($periodo as $fecha) {
             $fechaActual = $fecha->copy();
             $fechaStr    = $fechaActual->format('Y-m-d');
+            $nombreMes   = ucfirst($fechaActual->locale('es')->monthName) . ' ' . $fechaActual->year;
+            $datosDia    = $registros->get($fechaStr);
 
-            $nombreMes = ucfirst($fechaActual->locale('es')->monthName) . ' ' . $fechaActual->year;
-            $datosDia  = $registros->get($fechaStr);
+            // 3. Determinar el día de la semana actual 
+            // Carbon dayOfWeek: 0 (Dom) a 6 (Sab). Tu formato: 1 (Dom) a 7 (Sab).
+            // Sumamos 1 para que empate con las llaves de tu CheckboxList
+            $numeroDiaSemana = (string) ($fechaActual->dayOfWeek + 1);
 
-            $esDiaLaboral = $this->esDiaLaboral($fechaActual, $diasLaborales);
+            // 4. Extraer la entrada y salida Específica para este día
+            $horarioEntradaStr = $mapaHorarios[$numeroDiaSemana]['entrada'] ?? null;
+            $horarioSalidaStr  = $mapaHorarios[$numeroDiaSemana]['salida'] ?? null;
 
-            $tipoEvento = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
+            // Mantenemos tu función original pasándole todos los días que trabaja en la semana
+            $esDiaLaboral = $this->esDiaLaboral($fechaActual, $todosLosDiasLaborales);
 
+            $tipoEvento    = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
             $esFestivo     = $this->esFestivo($tipoEvento);
-            $esJustificado  = $this->esJustificado($datosDia);
+            $esJustificado = $this->esJustificado($datosDia);
 
+            // 5. Pasamos las horas específicas al resolverEstadoDia
             [$estado, $color, $detalle] = $this->resolverEstadoDia(
                 $fechaActual,
                 $datosDia,
@@ -114,13 +132,13 @@ class ReporteAsistenciasController extends Controller
                 'color'      => $color,
                 'detalle'    => $detalle,
                 'es_laboral' => $esDiaLaboral,
-                'festivo' => $esFestivo[0]
+                'festivo'    => $esFestivo[0] ?? false
             ];
         }
 
         $periodo = [$request->desde, $request->hasta];
         $html = view('reportes.asistencias-usuario', compact('calendario', 'usuario', 'periodo', 'registros'));
-        //return $html;
+
         $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
             ->setOptions([
                 'defaultFont' => 'Montserrat',
@@ -132,11 +150,8 @@ class ReporteAsistenciasController extends Controller
         $dompdf = $pdf->getDomPDF();
         $canvas = $dompdf->get_canvas();
         $width = $canvas->get_width();
-
         $x_center = ($width / 2) - 50;
 
-        //$canvas->page_text($x_center, 730, "Fuente: CUCSH. Secretaria Administrativa, Coordinación de Personal.", null, 8, [0, 0, 0]);
-        //$canvas->page_text($x_center, 740, "Fecha: " . $fechaDia, null, 8, [0, 0, 0]);
         $canvas->page_text($x_center, 750, "Parres Arias No. 150 Los Belenes C.P. 45132.", null, 8, [0, 0, 0]);
         $canvas->page_text(100, 760, "www.cucsh.udg.mx", null, 11, "#7D91BE");
         $canvas->page_text($x_center, 760, "Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700", null, 8, [0, 0, 0]);
@@ -273,12 +288,12 @@ class ReporteAsistenciasController extends Controller
         return in_array((string) $claveDiaUsuario, $diasLaborales, true);
     }
 
-    private function resolverEstadoDia(
+private function resolverEstadoDia(
         Carbon $fecha,
         $datosDia,
         bool $esDiaLaboral,
-        string $horarioEntradaStr,
-        string $horarioSalidaStr,
+        ?string $horarioEntradaStr, // <-- Añadimos el "?" para aceptar null
+        ?string $horarioSalidaStr,  // <-- Añadimos el "?" para aceptar null
         int $minutosTolerancia,
         array $esFestivo
     ): array {
@@ -291,15 +306,23 @@ class ReporteAsistenciasController extends Controller
             return ['Justificado', '#0dcaf0', null];
         }
 
+        // Si tiene registros (checó tarjeta)
         if ($datosDia) {
+            // VALIDACIÓN NUEVA: Si checó pero es su día de descanso (no hay horario)
+            if (!$esDiaLaboral || !$horarioEntradaStr || !$horarioSalidaStr) {
+                return ['Día Libre Trabajado', '#198754', 'Registro en día de descanso'];
+            }
+
+            // Si checó y sí es día laboral, evaluamos normal
             return $this->evaluarAsistencia(
                 $fecha,
                 $datosDia,
-                $horarioEntradaStr,
-                $horarioSalidaStr,
+                $horarioEntradaStr, // Ya estamos seguros de que no es null aquí
+                $horarioSalidaStr,  // Ya estamos seguros de que no es null aquí
                 $minutosTolerancia
             );
         }
+
         if ($datosDia && $datosDia->count() === 1) {
             return ['Error', '#fd7e14', null];
         }
