@@ -137,7 +137,6 @@
                                     @php $contadorCeldas++; @endphp
                                 @endfor
 
-                                {{-- 2. DÍAS DEL MES --}}
                                 @foreach ($diasDelMes as $item)
                                     @if ($contadorCeldas > 0 && $contadorCeldas % 7 == 0)
                             </tr>
@@ -149,18 +148,19 @@
                 $esFin = $item['fecha']->isWeekend();
 
                 // Extraemos qué día de la semana es y cuántas horas le tocan
-                $diaSemanaIso = $item['fecha']->dayOfWeekIso; // 1=Lun, 7=Dom
-                $cargaEsperadaHoy = $cargaPorDia[(string) $diaSemanaIso] ?? 0;
+                $diaSemana = $item['fecha']->dayOfWeek; // 1=Lun, 7=Dom
+                $diaWeek = $diaSemana == 0 ? 1 : $diaSemana + 1;
 
-                if (!$item['es_laboral']) {
-                    $dias_libres++;
-                } else {
+
+                $cargaEsperadaHoy = $cargaPorDia[(string) $diaWeek] ?? 0;
+
+                if ($item['es_laboral']) {
                     $dias_laborables++;
                     $total_esperado_periodo += $cargaEsperadaHoy;
+                } else {
+                    $dias_libres++;
                 }
 
-                // Contabilidad Dinámica
-                // Contabilidad Dinámica
                 if (is_array($item['detalle'])) {
                     $dias_asistidos++;
                     $seg = tiempoASegundos($item['detalle']['tiempo']);
