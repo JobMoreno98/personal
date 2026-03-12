@@ -411,4 +411,246 @@ class ReporteAsistenciasController extends Controller
     {
         return $datosDia && $datosDia->contains(fn($r) => $r->tipo === 'justificado');
     }
+
+    public function reporteFaltasDepartamento(Request $request)
+    {
+        $request->validate([
+            'departamento' => ['required'],
+            'fecha' => ['required', 'date']
+        ]);
+
+        $departamento = $request->departamento;
+
+        // Configuramos la fecha
+        $fechaConsulta = Carbon::parse($request->fecha)->timezone('America/Mexico_City');
+        $inicio = $fechaConsulta->copy()->startOfDay()->format('Y-m-d H:i:s');
+        $fin    = $fechaConsulta->copy()->endOfDay()->format('Y-m-d H:i:s');
+
+        // Día de la semana (1 = Domingo, ..., 7 = Sábado)
+        $numeroDiaSemana = (string) ($fechaConsulta->dayOfWeek + 1);
+
+        // =========================================================
+        // NUEVO: Verificamos si la fecha consultada es festiva o inhábil
+        // =========================================================
+        $esDiaFestivoOJustificado = Evento::whereDate('inicio', '<=', $fin)
+            ->whereDate('fin', '>=', $inicio)
+            ->exists(); // Usamos exists() porque solo nos interesa saber si hay un evento (true/false)
+        // =========================================================
+
+        // Obtenemos IDs de los usuarios del departamento
+        $idsUsuarios = Usuarios::select('usuario')->whereHas(
+            'instance',
+            fn($q) => $q->where('codigo', $departamento)
+        )->pluck('usuario');
+
+        // Traemos a los usuarios con sus horarios y registros filtrados
+        $usuariosRaw = Usuarios::with([
+            'horarios',
+            'registros' => function ($query) use ($inicio, $fin) {
+                $query->whereBetween('fechahora', [$inicio, $fin]);
+            }
+        ])
+            ->whereIn('usuario', $idsUsuarios)
+            ->get();
+
+        // Cambiamos el nombre de la colección para que tenga más sentido
+        $usuariosReporte = collect();
+
+        foreach ($usuariosRaw as $user) {
+            $esDiaLaboral = false;
+            $horarioEsperado = 'Sin horario definido';
+
+            // Revisamos si hoy le tocaba trabajar
+            foreach ($user->horarios as $bloque) {
+                $diasArray = is_array($bloque->dias) ? $bloque->dias : str_split($bloque->dias ?? '');
+                if (in_array($numeroDiaSemana, $diasArray)) {
+                    $esDiaLaboral = true;
+                    $horarioEsperado = $bloque->entrada . ' a ' . $bloque->salida;
+                    break;
+                }
+            }
+
+            // NUEVA REGLA: Si le tocaba trabajar, lo agregamos al reporte evaluando su estado
+            if ($esDiaLaboral) {
+                $estado = '';
+                $color = '';
+
+                if ($esDiaFestivoOJustificado) {
+                    $estado = 'Festivo / Inhábil';
+                    $color = '#6c757d'; // Gris
+                } elseif ($user->registros->isNotEmpty()) {
+                    $estado = 'Asistió';
+                    $color = '#198754'; // Verde
+                } else {
+                    $estado = 'Falta';
+                    $color = '#dc3545'; // Rojo
+                }
+
+                $usuariosReporte->push([
+                    'codigo'           => $user->usuario,
+                    'nombre'           => $user->nombre,
+                    'horario_esperado' => $horarioEsperado,
+                    'estado'           => $estado,
+                    'color'            => $color,
+                ]);
+            }
+        }
+        $usuariosReporte = $usuariosReporte->sortBy('nombre')->values();
+
+        $departamentoInfo = Instancias::select('nombre')->where('codigo', $departamento)->first();
+        $fechaFormateada = strftime('%e de %B de %Y', $fechaConsulta->timestamp);
+
+        // Pasamos la nueva colección a la vista
+        $html = view('reportes.faltas', [
+            'usuarios'     => $usuariosReporte,
+            'fecha'        => $fechaFormateada,
+            'departamento' => $departamentoInfo
+        ]);
+        $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'Montserrat',
+                'isRemoteEnabled' => true,
+                'isFontSubsettingEnabled' => true,
+            ]);
+
+        $pdf->output();
+        $dompdf = $pdf->getDomPDF();
+        $canvas = $dompdf->get_canvas();
+        $width = $canvas->get_width();
+        $x_center = ($width / 2) - 50;
+
+        $canvas->page_text($x_center, 750, "Parres Arias No. 150 Los Belenes C.P. 45132.", null, 8, [0, 0, 0]);
+        $canvas->page_text(100, 760, "www.cucsh.udg.mx", null, 11, "#7D91BE");
+        $canvas->page_text($x_center, 760, "Zapopan, Jalisco, México.   Tel. +52 (33) 38193300", null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 770, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, [0, 0, 0]);
+
+        return $pdf->stream();
+    }
+
+    public function reporteFaltasUsuarioRango(Request $request)
+    {
+        $request->validate([
+            'usuario' => ['required'],
+            'desde'   => ['required', 'date'],
+            'hasta'   => ['required', 'date'],
+        ]);
+
+        $usuario = Usuarios::with(['horarios'])->where('usuario', $request->usuario)->first();
+
+        if (!$usuario) {
+            abort(404);
+        }
+
+        $inicio = Carbon::parse($request->desde)->startOfDay();
+        $fin    = Carbon::parse($request->hasta)->endOfDay();
+
+        // 1. Extraemos los registros de checada
+        $registrosRaw = Registros::where('usuario', $request->usuario)
+            ->whereBetween('fechahora', [
+                $inicio->format('Y-m-d H:i:s'),
+                $fin->format('Y-m-d H:i:s')
+            ])->get();
+
+        $registrosPorDia = $registrosRaw->groupBy(function ($registro) {
+            return Carbon::parse($registro->fechahora)->format('Y-m-d');
+        });
+
+        // =========================================================
+        // 2. NUEVO: Extraemos los Eventos (Festivos, Vacaciones, etc.)
+        // =========================================================
+        $eventos = Evento::whereDate('inicio', '<=', $fin)
+            ->whereDate('fin', '>=', $inicio)
+            ->get();
+
+        // Mapeamos los eventos día por día para buscarlos rápido
+        $eventosPorFecha = $eventos->flatMap(function ($evento) {
+            $evInicio = Carbon::parse($evento->inicio)->startOfDay();
+            $evFin    = Carbon::parse($evento->fin)->startOfDay();
+
+            return collect(CarbonPeriod::create($evInicio, $evFin))->map(function ($fecha) use ($evento) {
+                return [
+                    'fecha' => $fecha->format('Y-m-d'),
+                    'tipo'  => $evento->tipo_evento->nombre ?? 'Justificado',
+                ];
+            });
+        })->groupBy('fecha');
+        // =========================================================
+
+
+        // 3. Iteramos sobre el periodo
+        $periodo = CarbonPeriod::create($inicio, $fin);
+        $faltas = collect();
+
+        $nombresDias = [
+            '1' => 'Domingo',
+            '2' => 'Lunes',
+            '3' => 'Martes',
+            '4' => 'Miércoles',
+            '5' => 'Jueves',
+            '6' => 'Viernes',
+            '7' => 'Sábado'
+        ];
+
+        foreach ($periodo as $fecha) {
+            $fechaStr = $fecha->format('Y-m-d');
+            $numeroDiaSemana = (string) ($fecha->dayOfWeek + 1); // 1=Dom, 7=Sab
+
+            $esDiaLaboral = false;
+            $horarioEsperado = 'Sin horario';
+
+            // Verificamos si le tocaba trabajar hoy según sus horarios
+            foreach ($usuario->horarios as $bloque) {
+                $diasArray = is_array($bloque->dias) ? $bloque->dias : str_split($bloque->dias ?? '');
+                if (in_array($numeroDiaSemana, $diasArray)) {
+                    $esDiaLaboral = true;
+                    $horarioEsperado = $bloque->entrada . ' a ' . $bloque->salida;
+                    break;
+                }
+            }
+
+            // NUEVA REGLA DE FALTA:
+            // 1. Le tocaba trabajar ($esDiaLaboral == true)
+            // 2. Y NO tiene checadas (!isset($registrosPorDia))
+            // 3. Y NO es día festivo ni tiene justificación (!isset($eventosPorFecha))
+
+            $esFestivoOJustificado = isset($eventosPorFecha[$fechaStr]);
+
+            if ($esDiaLaboral && !isset($registrosPorDia[$fechaStr]) && !$esFestivoOJustificado) {
+                $faltas->push([
+                    'fecha'            => $fecha->format('d/m/Y'),
+                    'dia_semana'       => $nombresDias[$numeroDiaSemana],
+                    'horario_esperado' => $horarioEsperado
+                ]);
+            }
+        }
+
+        // 4. Generación del PDF
+        $rangoText = $inicio->format('d/m/Y') . ' AL ' . $fin->format('d/m/Y');
+
+        $html = view('reportes.faltas-usuario', [
+            'usuario' => $usuario,
+            'faltas'  => $faltas,
+            'rango'   => $rangoText
+        ]);
+
+        $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'Montserrat',
+                'isRemoteEnabled' => true,
+                'isFontSubsettingEnabled' => true,
+            ]);
+
+        $pdf->output();
+        $dompdf = $pdf->getDomPDF();
+        $canvas = $dompdf->get_canvas();
+        $width = $canvas->get_width();
+        $x_center = ($width / 2) - 50;
+
+        $canvas->page_text($x_center, 750, "Parres Arias No. 150 Los Belenes C.P. 45132.", null, 8, [0, 0, 0]);
+        $canvas->page_text(100, 760, "www.cucsh.udg.mx", null, 11, "#7D91BE");
+        $canvas->page_text($x_center, 760, "Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700", null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 770, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, [0, 0, 0]);
+
+        return $pdf->stream();
+    }
 }

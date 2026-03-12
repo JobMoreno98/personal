@@ -16,15 +16,18 @@ Route::middleware(['web', Authenticate::class])
         Route::get('/reportes/asistencias', [ReporteAsistenciasController::class, 'index'])
             ->name('reportes.asistencias');
 
-        Route::get('/reportes/faltas', [ReporteAsistenciasController::class, 'faltas'])
+        Route::get('/reportes/faltas', [ReporteAsistenciasController::class, 'reporteFaltasUsuarioRango'])
             ->name('reportes.faltas');
+
+        Route::get('/reportes/faltas-departamento', [ReporteAsistenciasController::class, 'reporteFaltasDepartamento'])
+            ->name('reportes.faltas-departamento');
 
         Route::get('/reportes/asistencias-departamento', [ReporteAsistenciasController::class, 'departamento'])
             ->name('reportes.asistencias-departamento');
 
 
         Route::get('/fotos-perfil/{filename}', function ($filename) {
-            
+
             $disk = Storage::disk('servidor_fotos');
             if (! $disk->exists($filename)) {
                 abort(404);
@@ -39,5 +42,3 @@ Route::middleware(['web', Authenticate::class])
             ]);
         })->name('storage.proxy');
     });
-
-

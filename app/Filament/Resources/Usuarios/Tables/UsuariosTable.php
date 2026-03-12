@@ -48,6 +48,26 @@ class UsuariosTable
                         fn($livewire) =>
                         filled($livewire->getTableFilterState('departamento'))
                     ),
+                Action::make('exportar')
+                    ->label('Generar reporte faltas')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('info')
+                    ->url(function ($livewire) {
+
+                        $departamento = $livewire->getTableFilterState('departamento');
+                        $fecha        = $livewire->getTableFilterState('fecha_reporte')['fecha'] ?? null;
+
+                        return route('reportes.faltas-departamento', [
+                            'departamento' => $departamento,
+                            'fecha'        => $fecha,
+                        ]);
+                    })
+                    ->openUrlInNewTab()
+                    ->visible(
+                        fn($livewire) =>
+                        filled($livewire->getTableFilterState('departamento'))
+                    ),
+
             ])
             ->openRecordUrlInNewTab()
             ->columns([
