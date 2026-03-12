@@ -140,9 +140,9 @@
 
     <main style="clear: both;">
         <div style="width:100%;margin-top:1cm; margin-bottom: 20px !important;">
-            <p style="line-height:.8;overflow-wrap: break-word;" class="bold-text text-center">
+            <p style="line-height:.8;overflow-wrap: break-word;" class="bold-text text-center text-uppercase">
                 REPORTE DE ASISTENCIA DIARIA - {{ mb_strtoupper($departamento->nombre, 'UTF-8') }} <br>
-                CORRESPONDIENTE AL DÍA {{ mb_strtoupper($fecha, 'UTF-8') }}
+                CORRESPONDIENTE AL DÍA {{ strftime('%e de %B de %Y', strtotime(date($fecha)))  }}
             </p>
         </div>
 

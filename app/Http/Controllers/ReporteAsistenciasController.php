@@ -257,6 +257,9 @@ class ReporteAsistenciasController extends Controller
             ];
         });
 
+
+        $usuarios = $usuarios->sortBy('nombre')->values();
+
         $periodo = [$fechaConsulta->format('Y-m-d'), $fechaConsulta->format('Y-m-d')];
         $departamentoInfo = Instancias::select('nombre')->where('codigo', $departamento)->first();
 
@@ -503,7 +506,7 @@ class ReporteAsistenciasController extends Controller
         // Pasamos la nueva colección a la vista
         $html = view('reportes.faltas', [
             'usuarios'     => $usuariosReporte,
-            'fecha'        => $fechaFormateada,
+            'fecha'        => $fechaConsulta,
             'departamento' => $departamentoInfo
         ]);
         $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
