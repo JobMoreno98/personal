@@ -39,6 +39,7 @@ Route::middleware(['web', Authenticate::class])
             return Response::make($fileContent, 200, [
                 'Content-Type' => $type,
                 'Cache-Control' => 'public, max-age=86400', // Cache por 1 día
+                'Access-Control-Allow-Origin' => '*',
             ]);
         })->name('storage.proxy');
     });
