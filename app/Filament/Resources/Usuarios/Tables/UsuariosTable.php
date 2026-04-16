@@ -82,7 +82,7 @@ class UsuariosTable
                     ->options(function () {
                         return Instancias::query()
                             ->distinct()
-                            ->pluck('nombre', 'codigo')
+                            ->pluck('nombre', 'id')
                             ->toArray();
                     })
                     ->searchable()

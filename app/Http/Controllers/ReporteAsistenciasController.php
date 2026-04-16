@@ -75,7 +75,7 @@ class ReporteAsistenciasController extends Controller
 
         $periodo = CarbonPeriod::create($inicio, $fin);
         $calendario = [];
-        $minutosTolerancia = 40;
+        $minutosTolerancia = 30;
 
         $eventos = Evento::whereDate('inicio', '<=', $periodo->last())
             ->whereDate('fin', '>=', $periodo->first())
@@ -180,7 +180,7 @@ class ReporteAsistenciasController extends Controller
         // Obtenemos solo los IDs de los usuarios de ese departamento
         $idsUsuarios = Usuarios::select('usuario')->whereHas(
             'instance',
-            fn($q) => $q->where('codigo', $departamento)
+            fn($q) => $q->where('id', $departamento)
         )->pluck('usuario');
 
         // Traemos a los usuarios con sus horarios y SUS REGISTROS FILTRADOS en una sola consulta

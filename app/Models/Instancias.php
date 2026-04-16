@@ -15,14 +15,6 @@ class Instancias extends Model
 
     protected $guarded = [];
 
-    protected $primaryKey = 'codigo';
-
-    // Si NO es autoincremental
-    public $incrementing = false;
-
-    // Si NO es integer (uuid, string, etc.)
-    protected $keyType = 'string';
-
     public function responsable(): BelongsTo
     {
         return $this->belongsTo(Usuarios::class, 'jefe');

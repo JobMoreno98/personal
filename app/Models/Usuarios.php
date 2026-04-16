@@ -26,7 +26,7 @@ class Usuarios extends Model
     // 1. Instancia (Relación a otro modelo)
     public function instance(): BelongsTo
     {
-        return $this->belongsTo(Instancias::class, 'departamento');
+        return $this->belongsTo(Instancias::class, 'departamento','id');
     }
 
     // 2. Horario de Trabajo
