@@ -24,7 +24,9 @@ class ReporteAsistenciasController extends Controller
             'hasta' => ['required', 'date'],
         ]);
 
-        $usuario = Usuarios::with(['horarios'])->where('usuario', $request->usuario)->first();
+        $usuario = Usuarios::with(['horarios'])
+            ->where('usuario', $request->usuario)
+            ->first();
 
         if (!$usuario) {
             abort(404);
@@ -38,22 +40,17 @@ class ReporteAsistenciasController extends Controller
         }
 
         $inicio = $request->desde ? Carbon::parse($request->desde) : Carbon::now()->startOfMonth();
-        $fin    = $request->hasta ? Carbon::parse($request->hasta) : Carbon::now()->endOfMonth();
+        $fin = $request->hasta ? Carbon::parse($request->hasta) : Carbon::now()->endOfMonth();
 
         $registros = Registros::where('usuario', $request->usuario)
-            ->whereBetween('fechahora', [
-                $inicio->copy()->startOfDay()->setTimezone('UTC'),
-                $fin->copy()->endOfDay()->setTimezone('UTC')
-            ])
+            ->whereBetween('fechahora', [$inicio->copy()->startOfDay()->setTimezone('UTC'), $fin->copy()->endOfDay()->setTimezone('UTC')])
             ->orderBy('fechahora')
             ->get()
             ->groupBy(function ($registro) {
-                return Carbon::parse($registro->fechahora)
-                    ->setTimezone('America/Mexico_City')
-                    ->format('Y-m-d');
+                return Carbon::parse($registro->fechahora)->setTimezone('America/Mexico_City')->format('Y-m-d');
             });
 
-        // 2. Creamos un mapa de horarios. 
+        // 2. Creamos un mapa de horarios.
         // Llave = Día de la semana (1 a 7), Valor = Arreglo con entrada y salida
         $mapaHorarios = [];
         $todosLosDiasLaborales = [];
@@ -65,7 +62,7 @@ class ReporteAsistenciasController extends Controller
             foreach ($dias as $dia) {
                 $mapaHorarios[$dia] = [
                     'entrada' => $bloque->entrada,
-                    'salida'  => $bloque->salida
+                    'salida' => $bloque->salida,
                 ];
                 $todosLosDiasLaborales[] = $dia;
             }
@@ -78,69 +75,62 @@ class ReporteAsistenciasController extends Controller
         $calendario = [];
         $minutosTolerancia = 30;
 
-        $eventos = Evento::whereDate('inicio', '<=', $periodo->last())
-            ->whereDate('fin', '>=', $periodo->first())
-            ->get();
+        $eventos = Evento::whereDate('inicio', '<=', $periodo->last())->whereDate('fin', '>=', $periodo->first())->get();
 
-        $eventosPorFecha = $eventos->flatMap(function ($evento) {
-            $inicio = Carbon::parse($evento->inicio)->startOfDay();
-            $fin    = Carbon::parse($evento->fin)->startOfDay();
+        $eventosPorFecha = $eventos
+            ->flatMap(function ($evento) {
+                $inicio = Carbon::parse($evento->inicio)->startOfDay();
+                $fin = Carbon::parse($evento->fin)->startOfDay();
 
-            return collect(CarbonPeriod::create($inicio, $fin))->map(function ($fecha) use ($evento) {
-                return [
-                    'fecha' => $fecha->format('Y-m-d'),
-                    'tipo'  => $evento->tipo_evento->nombre,
-                ];
-            });
-        })->groupBy('fecha');
+                return collect(CarbonPeriod::create($inicio, $fin))->map(function ($fecha) use ($evento) {
+                    return [
+                        'fecha' => $fecha->format('Y-m-d'),
+                        'tipo' => $evento->tipo_evento->nombre,
+                    ];
+                });
+            })
+            ->groupBy('fecha');
 
         foreach ($periodo as $fecha) {
             $fechaActual = $fecha->copy();
-            $fechaStr    = $fechaActual->format('Y-m-d');
-            $nombreMes   = ucfirst($fechaActual->locale('es')->monthName) . ' ' . $fechaActual->year;
-            $datosDia    = $registros->get($fechaStr);
+            $fechaStr = $fechaActual->format('Y-m-d');
+            $nombreMes = ucfirst($fechaActual->locale('es')->monthName) . ' ' . $fechaActual->year;
+            $datosDia = $registros->get($fechaStr);
 
-            // 3. Determinar el día de la semana actual 
+            // 3. Determinar el día de la semana actual
             // Carbon dayOfWeek: 0 (Dom) a 6 (Sab). Tu formato: 1 (Dom) a 7 (Sab).
             // Sumamos 1 para que empate con las llaves de tu CheckboxList
             $numeroDiaSemana = (string) ($fechaActual->dayOfWeek + 1);
 
             // 4. Extraer la entrada y salida Específica para este día
             $horarioEntradaStr = $mapaHorarios[$numeroDiaSemana]['entrada'] ?? null;
-            $horarioSalidaStr  = $mapaHorarios[$numeroDiaSemana]['salida'] ?? null;
+            $horarioSalidaStr = $mapaHorarios[$numeroDiaSemana]['salida'] ?? null;
 
             // Mantenemos tu función original pasándole todos los días que trabaja en la semana
             $esDiaLaboral = $this->esDiaLaboral($fechaActual, $todosLosDiasLaborales);
 
-            $tipoEvento    = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
-            $esFestivo     = $this->esFestivo($tipoEvento);
+            $tipoEvento = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
+            $esFestivo = $this->esFestivo($tipoEvento);
             $esJustificado = $this->esJustificado($datosDia);
 
             // 5. Pasamos las horas específicas al resolverEstadoDia
-            [$estado, $color, $detalle] = $this->resolverEstadoDia(
-                $fechaActual,
-                $datosDia,
-                $esDiaLaboral,
-                $horarioEntradaStr,
-                $horarioSalidaStr,
-                $minutosTolerancia,
-                $esFestivo
-            );
+            [$estado, $color, $detalle] = $this->resolverEstadoDia($fechaActual, $datosDia, $esDiaLaboral, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $esFestivo);
 
             $calendario[$nombreMes][] = [
-                'fecha'      => $fechaActual,
-                'estado'     => $estado,
-                'color'      => $color,
-                'detalle'    => $detalle,
+                'fecha' => $fechaActual,
+                'estado' => $estado,
+                'color' => $color,
+                'detalle' => $detalle,
                 'es_laboral' => $esDiaLaboral,
-                'festivo'    => $esFestivo[0] ?? false
+                'festivo' => $esFestivo[0] ?? false,
             ];
         }
 
         $periodo = [$request->desde, $request->hasta];
         $html = view('reportes.asistencias-usuario', compact('calendario', 'usuario', 'periodo', 'registros'));
 
-        $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
+        $pdf = Pdf::loadHtml($html->render())
+            ->setPaper('letter', 'portrait')
             ->setOptions([
                 'defaultFont' => 'Montserrat',
                 'isRemoteEnabled' => true,
@@ -151,12 +141,12 @@ class ReporteAsistenciasController extends Controller
         $dompdf = $pdf->getDomPDF();
         $canvas = $dompdf->get_canvas();
         $width = $canvas->get_width();
-        $x_center = ($width / 2) - 50;
+        $x_center = $width / 2 - 50;
 
-        $canvas->page_text($x_center, 750, "Parres Arias No. 150 Los Belenes C.P. 45132.", null, 8, [0, 0, 0]);
-        $canvas->page_text(100, 760, "www.cucsh.udg.mx", null, 11, "#7D91BE");
-        $canvas->page_text($x_center, 760, "Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700", null, 8, [0, 0, 0]);
-        $canvas->page_text($x_center, 770, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 750, 'Parres Arias No. 150 Los Belenes C.P. 45132.', null, 8, [0, 0, 0]);
+        $canvas->page_text(100, 760, 'www.cucsh.udg.mx', null, 11, '#7D91BE');
+        $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700', null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 770, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0, 0, 0]);
 
         return $pdf->stream();
     }
@@ -164,7 +154,7 @@ class ReporteAsistenciasController extends Controller
     {
         $request->validate([
             'departamento' => ['required'],
-            'fecha' => ['required', 'date']
+            'fecha' => ['required', 'date'],
         ]);
 
         $departamento = $request->departamento;
@@ -173,31 +163,26 @@ class ReporteAsistenciasController extends Controller
 
         // CORRECCIÓN: Quitamos el timezone('UTC') para buscar exactamente por la hora local
         $inicio = $fechaConsulta->copy()->startOfDay()->format('Y-m-d H:i:s');
-        $fin    = $fechaConsulta->copy()->endOfDay()->format('Y-m-d H:i:s');
+        $fin = $fechaConsulta->copy()->endOfDay()->format('Y-m-d H:i:s');
 
         // Día de la semana (1 = Domingo, ..., 7 = Sábado) para cruzarlo con el horario
         $numeroDiaSemana = (string) ($fechaConsulta->dayOfWeek + 1);
 
         // Obtenemos solo los IDs de los usuarios de ese departamento
-        $idsUsuarios = Usuarios::select('usuario')->whereHas(
-            'instance',
-            fn($q) => $q->where('id', $departamento)
-        )->pluck('usuario');
+        $idsUsuarios = Usuarios::select('usuario')->whereHas('instance', fn($q) => $q->where('id', $departamento))->pluck('usuario');
 
         // Traemos a los usuarios con sus horarios y SUS REGISTROS FILTRADOS en una sola consulta
         $registrosRaw = Usuarios::with([
             'horarios',
             'registros' => function ($query) use ($inicio, $fin) {
-                $query->whereBetween('fechahora', [$inicio, $fin])
-                    ->orderBy('fechahora');
-            }
+                $query->whereBetween('fechahora', [$inicio, $fin])->orderBy('fechahora');
+            },
         ])
             ->whereIn('usuario', $idsUsuarios)
             ->get();
 
         // Mapeamos y estructuramos la información
         $usuarios = $registrosRaw->map(function ($user) use ($numeroDiaSemana, $fechaConsulta) {
-
             // 1. Verificamos si hoy le tocaba trabajar revisando sus bloques de horarios
             $esDiaLaboral = false;
             foreach ($user->horarios as $bloque) {
@@ -211,25 +196,23 @@ class ReporteAsistenciasController extends Controller
             // 2. Si no checó tarjeta en todo el día
             if ($user->registros->isEmpty()) {
                 return [
-                    'nombre'        => $user->nombre,
-                    'codigo'        => $user->usuario,
+                    'nombre' => $user->nombre,
+                    'codigo' => $user->usuario,
                     'sin_registros' => true,
-                    'es_laboral'    => $esDiaLaboral, // Puedes usar esto en tu vista para pintar rojo (falta) o gris (descanso)
-                    'dias'          => [],
+                    'es_laboral' => $esDiaLaboral, // Puedes usar esto en tu vista para pintar rojo (falta) o gris (descanso)
+                    'dias' => [],
                 ];
             }
 
             // 3. Si sí tiene registros, sacamos el primero y el último
             $entrada = $user->registros->first();
-            $salida  = $user->registros->last();
+            $salida = $user->registros->last();
             $cantidadRegistros = $user->registros->count();
 
             $hora_entrada = Carbon::parse($entrada->fechahora)->setTimezone('America/Mexico_City');
 
             // Si solo checó 1 vez, la salida es nula. Si checó 2 o más, tomamos la última.
-            $hora_salida = ($cantidadRegistros > 1)
-                ? Carbon::parse($salida->fechahora)->setTimezone('America/Mexico_City')
-                : null;
+            $hora_salida = $cantidadRegistros > 1 ? Carbon::parse($salida->fechahora)->setTimezone('America/Mexico_City') : null;
 
             $tiempo_total = '00:00:00';
             if ($hora_salida) {
@@ -240,24 +223,23 @@ class ReporteAsistenciasController extends Controller
             $fechaString = $fechaConsulta->format('Y-m-d');
 
             return [
-                'nombre'        => $user->nombre,
-                'codigo'        => $user->usuario,
+                'nombre' => $user->nombre,
+                'codigo' => $user->usuario,
                 'sin_registros' => false,
-                'es_laboral'    => $esDiaLaboral,
-                'dias'          => [
+                'es_laboral' => $esDiaLaboral,
+                'dias' => [
                     $fechaString => [
-                        'fecha'        => $fechaString,
+                        'fecha' => $fechaString,
                         'hora_entrada' => $hora_entrada->format('H:i:s'),
                         'tipo_entrada' => $entrada->tipo,
-                        'hora_salida'  => $hora_salida ? $hora_salida->format('H:i:s') : 'SIN CHECAR',
-                        'tipo_salida'  => $hora_salida ? $salida->tipo : null,
+                        'hora_salida' => $hora_salida ? $hora_salida->format('H:i:s') : 'SIN CHECAR',
+                        'tipo_salida' => $hora_salida ? $salida->tipo : null,
                         'tiempo_total' => $tiempo_total,
-                        'detalle_raw'  => $cantidadRegistros,
-                    ]
-                ]
+                        'detalle_raw' => $cantidadRegistros,
+                    ],
+                ],
             ];
         });
-
 
         $usuarios = $usuarios->sortBy('nombre')->values();
 
@@ -265,12 +247,13 @@ class ReporteAsistenciasController extends Controller
         $departamentoInfo = Instancias::select('nombre')->where('codigo', $departamento)->first();
 
         $html = view('reportes.asistencias', [
-            'usuarios'     => $usuarios,
-            'periodo'      => $periodo,
-            'departamento' => $departamentoInfo
+            'usuarios' => $usuarios,
+            'periodo' => $periodo,
+            'departamento' => $departamentoInfo,
         ]);
 
-        $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
+        $pdf = Pdf::loadHtml($html->render())
+            ->setPaper('letter', 'portrait')
             ->setOptions([
                 'defaultFont' => 'Montserrat',
                 'isRemoteEnabled' => true,
@@ -281,16 +264,15 @@ class ReporteAsistenciasController extends Controller
         $dompdf = $pdf->getDomPDF();
         $canvas = $dompdf->get_canvas();
         $width = $canvas->get_width();
-        $x_center = ($width / 2) - 50;
+        $x_center = $width / 2 - 50;
 
-        $canvas->page_text($x_center, 750, "Parres Arias No. 150 Los Belenes C.P. 45132.", null, 8, [0, 0, 0]);
-        $canvas->page_text(100, 760, "www.cucsh.udg.mx", null, 11, "#7D91BE");
-        $canvas->page_text($x_center, 760, "Zapopan, Jalisco, México.   Tel. +52 (33) 38193300", null, 8, [0, 0, 0]);
-        $canvas->page_text($x_center, 770, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 750, 'Parres Arias No. 150 Los Belenes C.P. 45132.', null, 8, [0, 0, 0]);
+        $canvas->page_text(100, 760, 'www.cucsh.udg.mx', null, 11, '#7D91BE');
+        $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300', null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 770, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0, 0, 0]);
 
         return $pdf->stream();
     }
-
 
     private function esDiaLaboral(Carbon $fecha, array $diasLaborales): bool
     {
@@ -304,11 +286,10 @@ class ReporteAsistenciasController extends Controller
         $datosDia,
         bool $esDiaLaboral,
         ?string $horarioEntradaStr, // <-- Añadimos el "?" para aceptar null
-        ?string $horarioSalidaStr,  // <-- Añadimos el "?" para aceptar null
+        ?string $horarioSalidaStr, // <-- Añadimos el "?" para aceptar null
         int $minutosTolerancia,
-        array $esFestivo
+        array $esFestivo,
     ): array {
-
         if ($esFestivo[0]) {
             return [$esFestivo[1], '#6f42c1', null];
         }
@@ -329,8 +310,8 @@ class ReporteAsistenciasController extends Controller
                 $fecha,
                 $datosDia,
                 $horarioEntradaStr, // Ya estamos seguros de que no es null aquí
-                $horarioSalidaStr,  // Ya estamos seguros de que no es null aquí
-                $minutosTolerancia
+                $horarioSalidaStr, // Ya estamos seguros de que no es null aquí
+                $minutosTolerancia,
             );
         }
 
@@ -342,42 +323,35 @@ class ReporteAsistenciasController extends Controller
         return $this->evaluarDiaSinRegistro($fecha, $esDiaLaboral);
     }
 
-    private function evaluarAsistencia(
-        Carbon $fecha,
-        $datosDia,
-        string $horarioEntradaStr,
-        string $horarioSalidaStr,
-        int $minutosTolerancia
-    ): array {
-
-
+    private function evaluarAsistencia(Carbon $fecha, $datosDia, string $horarioEntradaStr, string $horarioSalidaStr, int $minutosTolerancia): array
+    {
         $entrada = $datosDia->first();
-        $salida  = $datosDia->last();
+        $salida = $datosDia->last();
 
         $entradaReal = Carbon::parse($entrada->fechahora)->timezone('America/Mexico_City');
-        $salidaReal  = Carbon::parse($salida->fechahora)->timezone('America/Mexico_City');
+        $salidaReal = Carbon::parse($salida->fechahora)->timezone('America/Mexico_City');
 
         $entradaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioEntradaStr);
-        $salidaIdeal  = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr);
+        $salidaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr);
 
         if ($entradaReal->gt($entradaIdeal->copy()->addMinutes($minutosTolerancia))) {
             $estado = 'Retardo';
-            $color  = '#e0a800';
+            $color = '#e0a800';
         } elseif ($salidaReal->lt($salidaIdeal) && !$entradaReal->eq($salidaReal)) {
             $estado = 'Salida Anticipada';
-            $color  = '#17a2b8';
+            $color = '#17a2b8';
         } else {
             $estado = 'Asistencia';
-            $color  = '#28a745';
+            $color = '#28a745';
         }
         return [
             $estado,
             $color,
             [
                 'entrada' => $entradaReal->format('H:i:s'),
-                'salida'  => $salidaReal->format('H:i:s'),
-                'tiempo'  => $entradaReal->diff($salidaReal)->format('%H:%I:%S'),
-            ]
+                'salida' => $salidaReal->format('H:i:s'),
+                'tiempo' => $entradaReal->diff($salidaReal)->format('%H:%I:%S'),
+            ],
         ];
     }
 
@@ -398,16 +372,13 @@ class ReporteAsistenciasController extends Controller
         return ['', '#ffffff', null]; // Futuro
     }
 
-
     private function obtenerEventoDelDia(Carbon $fecha, $eventos): ?string
     {
-
         return $eventos->get($fecha->format('Y-m-d'))?->first()['tipo'] ?? null;
     }
 
     private function esFestivo(string $tipo = null)
     {
-
         $tipos = TipoEvento::select('nombre')->get()->pluck('nombre');
         return [$tipos->contains($tipo), $tipo];
     }
@@ -420,7 +391,7 @@ class ReporteAsistenciasController extends Controller
     {
         $request->validate([
             'departamento' => ['required'],
-            'fecha' => ['required', 'date']
+            'fecha' => ['required', 'date'],
         ]);
 
         $departamento = $request->departamento;
@@ -428,7 +399,7 @@ class ReporteAsistenciasController extends Controller
         // Configuramos la fecha
         $fechaConsulta = Carbon::parse($request->fecha)->timezone('America/Mexico_City');
         $inicio = $fechaConsulta->copy()->startOfDay()->format('Y-m-d H:i:s');
-        $fin    = $fechaConsulta->copy()->endOfDay()->format('Y-m-d H:i:s');
+        $fin = $fechaConsulta->copy()->endOfDay()->format('Y-m-d H:i:s');
 
         // Día de la semana (1 = Domingo, ..., 7 = Sábado)
         $numeroDiaSemana = (string) ($fechaConsulta->dayOfWeek + 1);
@@ -436,23 +407,18 @@ class ReporteAsistenciasController extends Controller
         // =========================================================
         // NUEVO: Verificamos si la fecha consultada es festiva o inhábil
         // =========================================================
-        $esDiaFestivoOJustificado = Evento::whereDate('inicio', '<=', $fin)
-            ->whereDate('fin', '>=', $inicio)
-            ->exists(); // Usamos exists() porque solo nos interesa saber si hay un evento (true/false)
+        $esDiaFestivoOJustificado = Evento::whereDate('inicio', '<=', $fin)->whereDate('fin', '>=', $inicio)->exists(); // Usamos exists() porque solo nos interesa saber si hay un evento (true/false)
         // =========================================================
 
         // Obtenemos IDs de los usuarios del departamento
-        $idsUsuarios = Usuarios::select('usuario')->whereHas(
-            'instance',
-            fn($q) => $q->where('codigo', $departamento)
-        )->pluck('usuario');
+        $idsUsuarios = Usuarios::select('usuario')->whereHas('instance', fn($q) => $q->where('codigo', $departamento))->pluck('usuario');
 
         // Traemos a los usuarios con sus horarios y registros filtrados
         $usuariosRaw = Usuarios::with([
             'horarios',
             'registros' => function ($query) use ($inicio, $fin) {
                 $query->whereBetween('fechahora', [$inicio, $fin]);
-            }
+            },
         ])
             ->whereIn('usuario', $idsUsuarios)
             ->get();
@@ -491,11 +457,11 @@ class ReporteAsistenciasController extends Controller
                 }
 
                 $usuariosReporte->push([
-                    'codigo'           => $user->usuario,
-                    'nombre'           => $user->nombre,
+                    'codigo' => $user->usuario,
+                    'nombre' => $user->nombre,
                     'horario_esperado' => $horarioEsperado,
-                    'estado'           => $estado,
-                    'color'            => $color,
+                    'estado' => $estado,
+                    'color' => $color,
                 ]);
             }
         }
@@ -506,11 +472,12 @@ class ReporteAsistenciasController extends Controller
 
         // Pasamos la nueva colección a la vista
         $html = view('reportes.faltas', [
-            'usuarios'     => $usuariosReporte,
-            'fecha'        => $fechaConsulta,
-            'departamento' => $departamentoInfo
+            'usuarios' => $usuariosReporte,
+            'fecha' => $fechaConsulta,
+            'departamento' => $departamentoInfo,
         ]);
-        $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
+        $pdf = Pdf::loadHtml($html->render())
+            ->setPaper('letter', 'portrait')
             ->setOptions([
                 'defaultFont' => 'Montserrat',
                 'isRemoteEnabled' => true,
@@ -521,12 +488,12 @@ class ReporteAsistenciasController extends Controller
         $dompdf = $pdf->getDomPDF();
         $canvas = $dompdf->get_canvas();
         $width = $canvas->get_width();
-        $x_center = ($width / 2) - 50;
+        $x_center = $width / 2 - 50;
 
-        $canvas->page_text($x_center, 750, "Parres Arias No. 150 Los Belenes C.P. 45132.", null, 8, [0, 0, 0]);
-        $canvas->page_text(100, 760, "www.cucsh.udg.mx", null, 11, "#7D91BE");
-        $canvas->page_text($x_center, 760, "Zapopan, Jalisco, México.   Tel. +52 (33) 38193300", null, 8, [0, 0, 0]);
-        $canvas->page_text($x_center, 770, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 750, 'Parres Arias No. 150 Los Belenes C.P. 45132.', null, 8, [0, 0, 0]);
+        $canvas->page_text(100, 760, 'www.cucsh.udg.mx', null, 11, '#7D91BE');
+        $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300', null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 770, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0, 0, 0]);
 
         return $pdf->stream();
     }
@@ -535,25 +502,25 @@ class ReporteAsistenciasController extends Controller
     {
         $request->validate([
             'usuario' => ['required'],
-            'desde'   => ['required', 'date'],
-            'hasta'   => ['required', 'date'],
+            'desde' => ['required', 'date'],
+            'hasta' => ['required', 'date'],
         ]);
 
-        $usuario = Usuarios::with(['horarios'])->where('usuario', $request->usuario)->first();
+        $usuario = Usuarios::with(['horarios'])
+            ->where('usuario', $request->usuario)
+            ->first();
 
         if (!$usuario) {
             abort(404);
         }
 
         $inicio = Carbon::parse($request->desde)->startOfDay();
-        $fin    = Carbon::parse($request->hasta)->endOfDay();
+        $fin = Carbon::parse($request->hasta)->endOfDay();
 
         // 1. Extraemos los registros de checada
         $registrosRaw = Registros::where('usuario', $request->usuario)
-            ->whereBetween('fechahora', [
-                $inicio->format('Y-m-d H:i:s'),
-                $fin->format('Y-m-d H:i:s')
-            ])->get();
+            ->whereBetween('fechahora', [$inicio->format('Y-m-d H:i:s'), $fin->format('Y-m-d H:i:s')])
+            ->get();
 
         $registrosPorDia = $registrosRaw->groupBy(function ($registro) {
             return Carbon::parse($registro->fechahora)->format('Y-m-d');
@@ -562,24 +529,23 @@ class ReporteAsistenciasController extends Controller
         // =========================================================
         // 2. NUEVO: Extraemos los Eventos (Festivos, Vacaciones, etc.)
         // =========================================================
-        $eventos = Evento::whereDate('inicio', '<=', $fin)
-            ->whereDate('fin', '>=', $inicio)
-            ->get();
+        $eventos = Evento::whereDate('inicio', '<=', $fin)->whereDate('fin', '>=', $inicio)->get();
 
         // Mapeamos los eventos día por día para buscarlos rápido
-        $eventosPorFecha = $eventos->flatMap(function ($evento) {
-            $evInicio = Carbon::parse($evento->inicio)->startOfDay();
-            $evFin    = Carbon::parse($evento->fin)->startOfDay();
+        $eventosPorFecha = $eventos
+            ->flatMap(function ($evento) {
+                $evInicio = Carbon::parse($evento->inicio)->startOfDay();
+                $evFin = Carbon::parse($evento->fin)->startOfDay();
 
-            return collect(CarbonPeriod::create($evInicio, $evFin))->map(function ($fecha) use ($evento) {
-                return [
-                    'fecha' => $fecha->format('Y-m-d'),
-                    'tipo'  => $evento->tipo_evento->nombre ?? 'Justificado',
-                ];
-            });
-        })->groupBy('fecha');
+                return collect(CarbonPeriod::create($evInicio, $evFin))->map(function ($fecha) use ($evento) {
+                    return [
+                        'fecha' => $fecha->format('Y-m-d'),
+                        'tipo' => $evento->tipo_evento->nombre ?? 'Justificado',
+                    ];
+                });
+            })
+            ->groupBy('fecha');
         // =========================================================
-
 
         // 3. Iteramos sobre el periodo
         $periodo = CarbonPeriod::create($inicio, $fin);
@@ -592,7 +558,7 @@ class ReporteAsistenciasController extends Controller
             '4' => 'Miércoles',
             '5' => 'Jueves',
             '6' => 'Viernes',
-            '7' => 'Sábado'
+            '7' => 'Sábado',
         ];
 
         foreach ($periodo as $fecha) {
@@ -621,9 +587,9 @@ class ReporteAsistenciasController extends Controller
 
             if ($esDiaLaboral && !isset($registrosPorDia[$fechaStr]) && !$esFestivoOJustificado) {
                 $faltas->push([
-                    'fecha'            => $fecha->format('d/m/Y'),
-                    'dia_semana'       => $nombresDias[$numeroDiaSemana],
-                    'horario_esperado' => $horarioEsperado
+                    'fecha' => $fecha->format('d/m/Y'),
+                    'dia_semana' => $nombresDias[$numeroDiaSemana],
+                    'horario_esperado' => $horarioEsperado,
                 ]);
             }
         }
@@ -633,11 +599,12 @@ class ReporteAsistenciasController extends Controller
 
         $html = view('reportes.faltas-usuario', [
             'usuario' => $usuario,
-            'faltas'  => $faltas,
-            'rango'   => $rangoText
+            'faltas' => $faltas,
+            'rango' => $rangoText,
         ]);
 
-        $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
+        $pdf = Pdf::loadHtml($html->render())
+            ->setPaper('letter', 'portrait')
             ->setOptions([
                 'defaultFont' => 'Montserrat',
                 'isRemoteEnabled' => true,
@@ -648,20 +615,18 @@ class ReporteAsistenciasController extends Controller
         $dompdf = $pdf->getDomPDF();
         $canvas = $dompdf->get_canvas();
         $width = $canvas->get_width();
-        $x_center = ($width / 2) - 50;
+        $x_center = $width / 2 - 50;
 
-        $canvas->page_text($x_center, 750, "Parres Arias No. 150 Los Belenes C.P. 45132.", null, 8, [0, 0, 0]);
-        $canvas->page_text(100, 760, "www.cucsh.udg.mx", null, 11, "#7D91BE");
-        $canvas->page_text($x_center, 760, "Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700", null, 8, [0, 0, 0]);
-        $canvas->page_text($x_center, 770, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 750, 'Parres Arias No. 150 Los Belenes C.P. 45132.', null, 8, [0, 0, 0]);
+        $canvas->page_text(100, 760, 'www.cucsh.udg.mx', null, 11, '#7D91BE');
+        $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700', null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 770, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0, 0, 0]);
 
         return $pdf->stream();
     }
 
     public function departamento_periodo(Request $request)
     {
-
-
         $request->validate([
             'departamento' => ['required'],
             'desde' => ['required', 'date'],
@@ -681,10 +646,10 @@ class ReporteAsistenciasController extends Controller
             abort(404, 'No hay usuarios en el área especificada');
         }
 
-        $zip = new ZipArchive;
+        $zip = new ZipArchive();
         $zipFileName = storage_path("app/public/reportes_area_{$departamento['value']}.zip");
 
-        if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
+        if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
             foreach ($usuarios as $usuario) {
                 // --- Aquí reutilizamos la lógica de tu método index ---
                 $horarios_usuario = Horario::where('usuario', $usuario->usuario)->get();
@@ -693,19 +658,14 @@ class ReporteAsistenciasController extends Controller
                 }
 
                 $inicio = Carbon::parse($request->desde);
-                $fin    = Carbon::parse($request->hasta);
+                $fin = Carbon::parse($request->hasta);
 
                 $registros = Registros::where('usuario', $usuario->usuario)
-                    ->whereBetween('fechahora', [
-                        $inicio->copy()->startOfDay()->setTimezone('UTC'),
-                        $fin->copy()->endOfDay()->setTimezone('UTC')
-                    ])
+                    ->whereBetween('fechahora', [$inicio->copy()->startOfDay()->setTimezone('UTC'), $fin->copy()->endOfDay()->setTimezone('UTC')])
                     ->orderBy('fechahora')
                     ->get()
                     ->groupBy(function ($registro) {
-                        return Carbon::parse($registro->fechahora)
-                            ->setTimezone('America/Mexico_City')
-                            ->format('Y-m-d');
+                        return Carbon::parse($registro->fechahora)->setTimezone('America/Mexico_City')->format('Y-m-d');
                     });
 
                 // Construcción del mapa de horarios
@@ -716,7 +676,7 @@ class ReporteAsistenciasController extends Controller
                     foreach ($dias as $dia) {
                         $mapaHorarios[$dia] = [
                             'entrada' => $bloque->entrada,
-                            'salida'  => $bloque->salida
+                            'salida' => $bloque->salida,
                         ];
                         $todosLosDiasLaborales[] = $dia;
                     }
@@ -727,68 +687,70 @@ class ReporteAsistenciasController extends Controller
                 $calendario = [];
                 $minutosTolerancia = 30;
 
-                $eventos = Evento::whereDate('inicio', '<=', $periodo->last())
-                    ->whereDate('fin', '>=', $periodo->first())
-                    ->get();
+                $eventos = Evento::whereDate('inicio', '<=', $periodo->last())->whereDate('fin', '>=', $periodo->first())->get();
 
-                $eventosPorFecha = $eventos->flatMap(function ($evento) {
-                    $inicio = Carbon::parse($evento->inicio)->startOfDay();
-                    $fin    = Carbon::parse($evento->fin)->startOfDay();
-                    return collect(CarbonPeriod::create($inicio, $fin))->map(function ($fecha) use ($evento) {
-                        return [
-                            'fecha' => $fecha->format('Y-m-d'),
-                            'tipo'  => $evento->tipo_evento->nombre,
-                        ];
-                    });
-                })->groupBy('fecha');
+                $eventosPorFecha = $eventos
+                    ->flatMap(function ($evento) {
+                        $inicio = Carbon::parse($evento->inicio)->startOfDay();
+                        $fin = Carbon::parse($evento->fin)->startOfDay();
+                        return collect(CarbonPeriod::create($inicio, $fin))->map(function ($fecha) use ($evento) {
+                            return [
+                                'fecha' => $fecha->format('Y-m-d'),
+                                'tipo' => $evento->tipo_evento->nombre,
+                            ];
+                        });
+                    })
+                    ->groupBy('fecha');
 
                 foreach ($periodo as $fecha) {
                     $fechaActual = $fecha->copy();
-                    $fechaStr    = $fechaActual->format('Y-m-d');
-                    $nombreMes   = ucfirst($fechaActual->locale('es')->monthName) . ' ' . $fechaActual->year;
-                    $datosDia    = $registros->get($fechaStr);
+                    $fechaStr = $fechaActual->format('Y-m-d');
+                    $nombreMes = ucfirst($fechaActual->locale('es')->monthName) . ' ' . $fechaActual->year;
+                    $datosDia = $registros->get($fechaStr);
 
                     $numeroDiaSemana = (string) ($fechaActual->dayOfWeek + 1);
                     $horarioEntradaStr = $mapaHorarios[$numeroDiaSemana]['entrada'] ?? null;
-                    $horarioSalidaStr  = $mapaHorarios[$numeroDiaSemana]['salida'] ?? null;
+                    $horarioSalidaStr = $mapaHorarios[$numeroDiaSemana]['salida'] ?? null;
 
                     $esDiaLaboral = $this->esDiaLaboral($fechaActual, $todosLosDiasLaborales);
-                    $tipoEvento    = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
-                    $esFestivo     = $this->esFestivo($tipoEvento);
+                    $tipoEvento = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
+                    $esFestivo = $this->esFestivo($tipoEvento);
                     $esJustificado = $this->esJustificado($datosDia);
 
-                    [$estado, $color, $detalle] = $this->resolverEstadoDia(
-                        $fechaActual,
-                        $datosDia,
-                        $esDiaLaboral,
-                        $horarioEntradaStr,
-                        $horarioSalidaStr,
-                        $minutosTolerancia,
-                        $esFestivo
-                    );
+                    [$estado, $color, $detalle] = $this->resolverEstadoDia($fechaActual, $datosDia, $esDiaLaboral, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $esFestivo);
 
                     $calendario[$nombreMes][] = [
-                        'fecha'      => $fechaActual,
-                        'estado'     => $estado,
-                        'color'      => $color,
-                        'detalle'    => $detalle,
+                        'fecha' => $fechaActual,
+                        'estado' => $estado,
+                        'color' => $color,
+                        'detalle' => $detalle,
                         'es_laboral' => $esDiaLaboral,
-                        'festivo'    => $esFestivo[0] ?? false
+                        'festivo' => $esFestivo[0] ?? false,
                     ];
                 }
 
                 $periodo = [$request->desde, $request->hasta];
                 $html = view('reportes.asistencias-usuario', compact('calendario', 'usuario', 'periodo', 'registros'));
 
-                $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
+                $pdf = Pdf::loadHtml($html->render())
+                    ->setPaper('letter', 'portrait')
                     ->setOptions([
                         'defaultFont' => 'Montserrat',
                         'isRemoteEnabled' => true,
                         'isFontSubsettingEnabled' => true,
                     ]);
 
-                $pdfContent = $pdf->output();
+                $pdf->output();
+                $dompdf = $pdf->getDomPDF();
+                $canvas = $dompdf->get_canvas();
+                $width = $canvas->get_width();
+                $x_center = $width / 2 - 50;
 
+                $canvas->page_text($x_center, 750, 'Parres Arias No. 150 Los Belenes C.P. 45132.', null, 8, [0, 0, 0]);
+                $canvas->page_text(100, 760, 'www.cucsh.udg.mx', null, 11, '#7D91BE');
+                $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700', null, 8, [0, 0, 0]);
+                $canvas->page_text($x_center, 770, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0, 0, 0]);
+                $pdfContent = $pdf->output();
                 // Guardamos cada PDF en el ZIP
                 $zip->addFromString("reporte_usuario_{$usuario->usuario}.pdf", $pdfContent);
             }
