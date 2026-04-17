@@ -145,7 +145,7 @@ class ReporteAsistenciasController extends Controller
 
         $canvas->page_text($x_center, 750, 'Parres Arias No. 150 Los Belenes C.P. 45132.', null, 8, [0, 0, 0]);
         $canvas->page_text(100, 760, 'www.cucsh.udg.mx', null, 11, '#7D91BE');
-        $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700', null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23409', null, 8, [0, 0, 0]);
         $canvas->page_text($x_center, 770, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0, 0, 0]);
 
         return $pdf->stream();
@@ -619,7 +619,7 @@ class ReporteAsistenciasController extends Controller
 
         $canvas->page_text($x_center, 750, 'Parres Arias No. 150 Los Belenes C.P. 45132.', null, 8, [0, 0, 0]);
         $canvas->page_text(100, 760, 'www.cucsh.udg.mx', null, 11, '#7D91BE');
-        $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700', null, 8, [0, 0, 0]);
+        $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23409', null, 8, [0, 0, 0]);
         $canvas->page_text($x_center, 770, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0, 0, 0]);
 
         return $pdf->stream();
@@ -748,7 +748,7 @@ class ReporteAsistenciasController extends Controller
 
                 $canvas->page_text($x_center, 750, 'Parres Arias No. 150 Los Belenes C.P. 45132.', null, 8, [0, 0, 0]);
                 $canvas->page_text(100, 760, 'www.cucsh.udg.mx', null, 11, '#7D91BE');
-                $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23700', null, 8, [0, 0, 0]);
+                $canvas->page_text($x_center, 760, 'Zapopan, Jalisco, México.   Tel. +52 (33) 38193300 Ext. 23409', null, 8, [0, 0, 0]);
                 $canvas->page_text($x_center, 770, 'Página {PAGE_NUM} de {PAGE_COUNT}', null, 8, [0, 0, 0]);
                 $pdfContent = $pdf->output();
                 // Guardamos cada PDF en el ZIP
