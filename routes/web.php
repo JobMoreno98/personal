@@ -7,29 +7,25 @@ use Illuminate\Support\Facades\Response;
 use Filament\Http\Middleware\Authenticate;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('filament.admin.auth.login');
 });
 
 Route::middleware(['web', Authenticate::class])
     ->prefix('admin')
     ->group(function () {
-        Route::get('/reportes/asistencias', [ReporteAsistenciasController::class, 'index'])
-            ->name('reportes.asistencias');
+        Route::get('/reportes/asistencias', [ReporteAsistenciasController::class, 'index'])->name('reportes.asistencias');
 
-        Route::get('/reportes/faltas', [ReporteAsistenciasController::class, 'reporteFaltasUsuarioRango'])
-            ->name('reportes.faltas');
+        Route::get('/reportes/faltas', [ReporteAsistenciasController::class, 'reporteFaltasUsuarioRango'])->name('reportes.faltas');
 
-        Route::get('/reportes/faltas-departamento', [ReporteAsistenciasController::class, 'reporteFaltasDepartamento'])
-            ->name('reportes.faltas-departamento');
+        Route::get('/reportes/faltas-departamento', [ReporteAsistenciasController::class, 'reporteFaltasDepartamento'])->name('reportes.faltas-departamento');
 
-        Route::get('/reportes/asistencias-departamento', [ReporteAsistenciasController::class, 'departamento'])
-            ->name('reportes.asistencias-departamento');
+        Route::get('/reportes/asistencias-departamento', [ReporteAsistenciasController::class, 'departamento'])->name('reportes.asistencias-departamento');
 
+        Route::get('/reportes/asistencias-departamento-periodo', [ReporteAsistenciasController::class, 'departamento_periodo'])->name('reportes.asistencias-departamento-periodo');
 
         Route::get('/fotos-perfil/{filename}', function ($filename) {
-
             $disk = Storage::disk('servidor_fotos');
-            if (! $disk->exists($filename)) {
+            if (!$disk->exists($filename)) {
                 abort(404);
             }
 

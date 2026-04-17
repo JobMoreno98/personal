@@ -1,29 +1,9 @@
 @php
+
     date_default_timezone_set('America/Mexico_City');
     setlocale(LC_TIME, 'es_MX.UTF-8', 'esp');
     $img = asset('images/logo_nuevo.png');
     $fechaDia = strftime('%e de %B de %Y', strtotime(date('Y-m-d')));
-
-    function tiempoASegundos($tiempo)
-    {
-        if (!$tiempo) {
-            return 0;
-        }
-        $partes = explode(':', $tiempo);
-        $h = (int) ($partes[0] ?? 0);
-        $m = (int) ($partes[1] ?? 0);
-        $s = (int) ($partes[2] ?? 0);
-        return $h * 3600 + $m * 60 + $s;
-    }
-
-    function segundosAHorasMinSeg($segundos)
-    {
-        $h = intdiv($segundos, 3600);
-        $segundos %= 3600;
-        $m = intdiv($segundos, 60);
-        $s = $segundos % 60;
-        return sprintf('%02d:%02d:%02d', $h, $m, $s);
-    }
 
     // VARIABLES TOTALES
     $total_segundos_reales = 0;
@@ -45,8 +25,8 @@
     $cargaPorDia = []; // Guardará cuántos segundos debe trabajar el Lunes(1), Martes(2)...
 
     foreach ($usuario->horarios as $horario) {
-        $segEntrada = tiempoASegundos($horario->entrada);
-        $segSalida = tiempoASegundos($horario->salida);
+        $segEntrada = \App\Helpers\TiempoHelper::tiempoASegundos($horario->entrada);
+        $segSalida = \App\Helpers\TiempoHelper::tiempoASegundos($horario->salida);
         $cargaBloque = $segSalida - $segEntrada;
 
         $diasArray = is_array($horario->dias) ? $horario->dias : str_split($horario->dias ?? '');
@@ -61,7 +41,7 @@
     $cargasUnicas = array_unique(array_values($cargaPorDia));
     $textoCargaDiaria =
         count($cargasUnicas) === 1 && count($cargasUnicas) > 0
-            ? segundosAHorasMinSeg($cargasUnicas[0])
+            ? \App\Helpers\TiempoHelper::segundosAHorasMinSeg($cargasUnicas[0])
             : 'Variable según día';
 
 @endphp
@@ -151,7 +131,6 @@
                 $diaSemana = $item['fecha']->dayOfWeek; // 1=Lun, 7=Dom
                 $diaWeek = $diaSemana == 0 ? 1 : $diaSemana + 1;
 
-
                 $cargaEsperadaHoy = $cargaPorDia[(string) $diaWeek] ?? 0;
 
                 if ($item['es_laboral']) {
@@ -163,7 +142,7 @@
 
                 if (is_array($item['detalle'])) {
                     $dias_asistidos++;
-                    $seg = tiempoASegundos($item['detalle']['tiempo']);
+                    $seg = \App\Helpers\TiempoHelper::tiempoASegundos($item['detalle']['tiempo']);
                     $total_segundos_reales += $seg;
                 } elseif (is_string($item['detalle'])) {
                     // Si fue a trabajar en día libre, lo contamos como asistido pero sin sumar horas estándar
@@ -192,8 +171,8 @@
 
                 @if (is_array($item['detalle']))
                     @php
-                        $total_semana += tiempoASegundos($item['detalle']['tiempo']);
-                        $total_mes += tiempoASegundos($item['detalle']['tiempo']);
+                        $total_semana += \App\Helpers\TiempoHelper::tiempoASegundos($item['detalle']['tiempo']);
+                        $total_mes += \App\Helpers\TiempoHelper::tiempoASegundos($item['detalle']['tiempo']);
                     @endphp
                     <div class="info-bloque">
                         <span class="hora-row"><span class="lbl">E - </span>{{ $item['detalle']['entrada'] }}</span>
@@ -234,7 +213,7 @@
 
             @if ($esDomingo)
                 <td class="total-semana-col">
-                    {{ segundosAHorasMinSeg($total_semana) }} hrs.
+                    {{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($total_semana) }} hrs.
                 </td>
                 @php
                     $contadorCeldas++;
@@ -256,7 +235,7 @@
                 @endwhile
 
                 <td class="total-semana-col">
-                    {{ segundosAHorasMinSeg($total_semana) }} hrs.
+                    {{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($total_semana) }} hrs.
                 </td>
                 @php
                     $contadorCeldas++;
@@ -268,7 +247,7 @@
             </table>
         </div>
         <div class="text-right" style="font-size: 12px;">
-            Total mes: {{ segundosAHorasMinSeg($total_mes) }} hrs.
+            Total mes: {{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($total_mes) }} hrs.
         </div>
         @endforeach
         </div>
@@ -289,38 +268,38 @@
                     <div class="table-cell-new">Días Periodo</div>
                     <div class="table-cell-new">{{ $dias_periodo }}</div>
                     <div class="table-cell-new">Carga horaria por semana</div>
-                    <div class="table-cell-new">{{ segundosAHorasMinSeg($cargaSemana) }}</div>
+                    <div class="table-cell-new">{{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($cargaSemana) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new">Días laborales</div>
                     <div class="table-cell-new">{{ $dias_laborables }}</div>
                     <div class="table-cell-new">Carga por periodo</div>
-                    <div class="table-cell-new">{{ segundosAHorasMinSeg($total_esperado_periodo) }}</div>
+                    <div class="table-cell-new">{{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($total_esperado_periodo) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new"> Días libres</div>
                     <div class="table-cell-new">{{ $dias_libres }}</div>
                     <div class="table-cell-new">Reales registradas (sin contar dias con errores)</div>
-                    <div class="table-cell-new">{{ segundosAHorasMinSeg($total_segundos_reales) }}</div>
+                    <div class="table-cell-new">{{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($total_segundos_reales) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new">Días asistidos</div>
                     <div class="table-cell-new">{{ $dias_asistidos }} </div>
                     <div class="table-cell-new">Justificadas</div>
-                    <div class="table-cell-new">{{ segundosAHorasMinSeg($total_segundos_justificados) }}</div>
+                    <div class="table-cell-new">{{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($total_segundos_justificados) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new">Días faltados</div>
                     <div class="table-cell-new">{{ $dias_faltados }} </div>
                     <div class="table-cell-new">Días Festivos o especiales </div>
-                    <div class="table-cell-new">{{ segundosAHorasMinSeg($total_segundos_festivos) }}</div>
+                    <div class="table-cell-new">{{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($total_segundos_festivos) }}</div>
                 </div>
                 <div class="table-row-new">
                     <div class="table-cell-new"> Días Justificados</div>
                     <div class="table-cell-new">{{ $dias_justificados }} </div>
                     <div class="table-cell-new">Reales + justificadas + festivos </div>
                     <div class="table-cell-new">
-                        {{ segundosAHorasMinSeg($total_segundos_justificados + $total_segundos_festivos + $total_segundos_reales) }}
+                        {{ \App\Helpers\TiempoHelper::segundosAHorasMinSeg($total_segundos_justificados + $total_segundos_festivos + $total_segundos_reales) }}
                     </div>
                 </div>
                 <div class="table-row-new">

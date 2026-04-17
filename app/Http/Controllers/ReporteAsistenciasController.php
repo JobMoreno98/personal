@@ -12,6 +12,7 @@ use App\Models\TipoEvento;
 use App\Models\Usuarios;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonPeriod;
+use ZipArchive;
 
 class ReporteAsistenciasController extends Controller
 {
@@ -655,5 +656,145 @@ class ReporteAsistenciasController extends Controller
         $canvas->page_text($x_center, 770, "Página {PAGE_NUM} de {PAGE_COUNT}", null, 8, [0, 0, 0]);
 
         return $pdf->stream();
+    }
+
+    public function departamento_periodo(Request $request)
+    {
+
+
+        $request->validate([
+            'departamento' => ['required'],
+            'desde' => ['required', 'date'],
+            'hasta' => ['required', 'date'],
+        ]);
+
+        //dd($request->all());
+
+        $departamento = $request->departamento;
+        //dd($departamento['value']);
+
+        $usuarios = Usuarios::with(['horarios'])
+            ->where('departamento', $departamento['value'])
+            ->get();
+
+        if ($usuarios->isEmpty()) {
+            abort(404, 'No hay usuarios en el área especificada');
+        }
+
+        $zip = new ZipArchive;
+        $zipFileName = storage_path("app/public/reportes_area_{$departamento['value']}.zip");
+
+        if ($zip->open($zipFileName, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
+            foreach ($usuarios as $usuario) {
+                // --- Aquí reutilizamos la lógica de tu método index ---
+                $horarios_usuario = Horario::where('usuario', $usuario->usuario)->get();
+                if ($horarios_usuario->isEmpty()) {
+                    continue; // saltamos si no tiene horarios
+                }
+
+                $inicio = Carbon::parse($request->desde);
+                $fin    = Carbon::parse($request->hasta);
+
+                $registros = Registros::where('usuario', $usuario->usuario)
+                    ->whereBetween('fechahora', [
+                        $inicio->copy()->startOfDay()->setTimezone('UTC'),
+                        $fin->copy()->endOfDay()->setTimezone('UTC')
+                    ])
+                    ->orderBy('fechahora')
+                    ->get()
+                    ->groupBy(function ($registro) {
+                        return Carbon::parse($registro->fechahora)
+                            ->setTimezone('America/Mexico_City')
+                            ->format('Y-m-d');
+                    });
+
+                // Construcción del mapa de horarios
+                $mapaHorarios = [];
+                $todosLosDiasLaborales = [];
+                foreach ($horarios_usuario as $bloque) {
+                    $dias = is_array($bloque->dias) ? $bloque->dias : str_split($bloque->dias);
+                    foreach ($dias as $dia) {
+                        $mapaHorarios[$dia] = [
+                            'entrada' => $bloque->entrada,
+                            'salida'  => $bloque->salida
+                        ];
+                        $todosLosDiasLaborales[] = $dia;
+                    }
+                }
+                $todosLosDiasLaborales = array_unique($todosLosDiasLaborales);
+
+                $periodo = CarbonPeriod::create($inicio, $fin);
+                $calendario = [];
+                $minutosTolerancia = 30;
+
+                $eventos = Evento::whereDate('inicio', '<=', $periodo->last())
+                    ->whereDate('fin', '>=', $periodo->first())
+                    ->get();
+
+                $eventosPorFecha = $eventos->flatMap(function ($evento) {
+                    $inicio = Carbon::parse($evento->inicio)->startOfDay();
+                    $fin    = Carbon::parse($evento->fin)->startOfDay();
+                    return collect(CarbonPeriod::create($inicio, $fin))->map(function ($fecha) use ($evento) {
+                        return [
+                            'fecha' => $fecha->format('Y-m-d'),
+                            'tipo'  => $evento->tipo_evento->nombre,
+                        ];
+                    });
+                })->groupBy('fecha');
+
+                foreach ($periodo as $fecha) {
+                    $fechaActual = $fecha->copy();
+                    $fechaStr    = $fechaActual->format('Y-m-d');
+                    $nombreMes   = ucfirst($fechaActual->locale('es')->monthName) . ' ' . $fechaActual->year;
+                    $datosDia    = $registros->get($fechaStr);
+
+                    $numeroDiaSemana = (string) ($fechaActual->dayOfWeek + 1);
+                    $horarioEntradaStr = $mapaHorarios[$numeroDiaSemana]['entrada'] ?? null;
+                    $horarioSalidaStr  = $mapaHorarios[$numeroDiaSemana]['salida'] ?? null;
+
+                    $esDiaLaboral = $this->esDiaLaboral($fechaActual, $todosLosDiasLaborales);
+                    $tipoEvento    = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
+                    $esFestivo     = $this->esFestivo($tipoEvento);
+                    $esJustificado = $this->esJustificado($datosDia);
+
+                    [$estado, $color, $detalle] = $this->resolverEstadoDia(
+                        $fechaActual,
+                        $datosDia,
+                        $esDiaLaboral,
+                        $horarioEntradaStr,
+                        $horarioSalidaStr,
+                        $minutosTolerancia,
+                        $esFestivo
+                    );
+
+                    $calendario[$nombreMes][] = [
+                        'fecha'      => $fechaActual,
+                        'estado'     => $estado,
+                        'color'      => $color,
+                        'detalle'    => $detalle,
+                        'es_laboral' => $esDiaLaboral,
+                        'festivo'    => $esFestivo[0] ?? false
+                    ];
+                }
+
+                $periodo = [$request->desde, $request->hasta];
+                $html = view('reportes.asistencias-usuario', compact('calendario', 'usuario', 'periodo', 'registros'));
+
+                $pdf = Pdf::loadHtml($html->render())->setPaper('letter', 'portrait')
+                    ->setOptions([
+                        'defaultFont' => 'Montserrat',
+                        'isRemoteEnabled' => true,
+                        'isFontSubsettingEnabled' => true,
+                    ]);
+
+                $pdfContent = $pdf->output();
+
+                // Guardamos cada PDF en el ZIP
+                $zip->addFromString("reporte_usuario_{$usuario->usuario}.pdf", $pdfContent);
+            }
+            $zip->close();
+        }
+
+        return response()->download($zipFileName)->deleteFileAfterSend(true);
     }
 }
