@@ -736,7 +736,7 @@ class ReporteAsistenciasController extends Controller
                     $esFestivo = $this->esFestivo($tipoEvento);
                     $esJustificado = $this->esJustificado($datosDia);
 
-                    [$estado, $color, $detalle] = $this->resolverEstadoDia($fechaActual, $datosDia, $esDiaLaboral, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $esFestivo);
+                    [$estado, $color, $detalle] = $this->resolverEstadoDia($fechaActual, $datosDia, $esDiaLaboral, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $esFestivo, $usuario);
 
                     $calendario[$nombreMes][] = [
                         'fecha' => $fechaActual,
