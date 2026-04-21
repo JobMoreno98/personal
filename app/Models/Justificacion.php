@@ -18,7 +18,7 @@ class Justificacion extends Model
     }
     public function tipo(): BelongsTo
     {
-        return $this->belongsTo(JustificanteLista::class, 'justificante');
+        return $this->belongsTo(JustificanteLista::class, 'justificante', 'id');
     }
 
     public function justificanteLista()

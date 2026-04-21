@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Evento;
 use App\Models\Horario;
 use App\Models\Instancias;
+use App\Models\Justificacion;
+use App\Models\JustificantePeriodo;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\Registros;
@@ -114,8 +116,9 @@ class ReporteAsistenciasController extends Controller
             $esJustificado = $this->esJustificado($datosDia);
 
             // 5. Pasamos las horas específicas al resolverEstadoDia
-            [$estado, $color, $detalle] = $this->resolverEstadoDia($fechaActual, $datosDia, $esDiaLaboral, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $esFestivo);
+            [$estado, $color, $detalle] = $this->resolverEstadoDia($fechaActual, $datosDia, $esDiaLaboral, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $esFestivo, $usuario);
 
+            //dd($datosDia, $estado);
             $calendario[$nombreMes][] = [
                 'fecha' => $fechaActual,
                 'estado' => $estado,
@@ -281,6 +284,13 @@ class ReporteAsistenciasController extends Controller
         return in_array((string) $claveDiaUsuario, $diasLaborales, true);
     }
 
+    private function obetenrClausula(Carbon $fecha, array $diasLaborales): bool
+    {
+        $claveDiaUsuario = $fecha->dayOfWeek + 1;
+
+        return in_array((string) $claveDiaUsuario, $diasLaborales, true);
+    }
+
     private function resolverEstadoDia(
         Carbon $fecha,
         $datosDia,
@@ -289,13 +299,22 @@ class ReporteAsistenciasController extends Controller
         ?string $horarioSalidaStr, // <-- Añadimos el "?" para aceptar null
         int $minutosTolerancia,
         array $esFestivo,
+        Usuarios $usuario,
     ): array {
         if ($esFestivo[0]) {
             return [$esFestivo[1], '#6f42c1', null];
         }
 
         if ($this->esJustificado($datosDia)) {
-            return ['Justificado', '#0dcaf0', null];
+            //dd($usuario);
+            $justificaciones = Justificacion::where('usuario', $usuario->usuario)
+                ->whereHas('periodo', function ($query) use ($fecha) {
+                    $query->where('fecha_inicial', '<=', $fecha)->where('fecha_final', '>=', $fecha);
+                })
+                ->first()->tipo->nombre;
+
+            //dd($justificaciones);
+            return ['Justificado <br/>' . $justificaciones, '#0dcaf0', null];
         }
 
         // Si tiene registros (checó tarjeta)

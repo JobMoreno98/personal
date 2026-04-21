@@ -14,7 +14,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
-
 class MateriaResource extends Resource
 {
     protected static ?string $model = Materia::class;
@@ -23,6 +22,10 @@ class MateriaResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'Materias';
 
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Académico';
+    }
     public static function form(Schema $schema): Schema
     {
         return MateriaForm::configure($schema);
@@ -36,8 +39,8 @@ class MateriaResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array

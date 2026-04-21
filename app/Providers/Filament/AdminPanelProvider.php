@@ -19,6 +19,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use AlizHarb\ActivityLog\ActivityLogPlugin;
+use App\Filament\Resources\Usuarios\UsuariosResource;
 use Jacobtims\FilamentLogger\FilamentLoggerPlugin;
 
 class AdminPanelProvider extends PanelProvider
@@ -35,6 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Purple,
             ])
+            ->navigationGroups(['Administrativo', 'Académico', 'Ajustes', 'Sistema'])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -44,6 +46,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([AccountWidget::class, FilamentInfoWidget::class])
             ->plugins([FilamentLoggerPlugin::make()])
             ->middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, AuthenticateSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class, SubstituteBindings::class, DisableBladeIconComponents::class, DispatchServingFilamentEvent::class])
-            ->authMiddleware([Authenticate::class]);
+            ->authMiddleware([Authenticate::class])
+            ->homeUrl(fn() => UsuariosResource::getUrl('index'));
     }
 }

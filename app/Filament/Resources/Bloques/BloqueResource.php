@@ -20,6 +20,11 @@ class BloqueResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Académico';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return BloqueForm::configure($schema);
@@ -33,8 +38,8 @@ class BloqueResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array

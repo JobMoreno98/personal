@@ -19,7 +19,14 @@ class JustificacionResource extends Resource
     protected static ?string $model = Justificacion::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
+    protected static ?string $title = 'Justificante';
+    protected static ?string $navigationLabel = 'Justificante';
+    protected static ?string $pluralModelLabel = 'Justificantes';
+    protected static ?int $navigationSort = 2;
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Administrativo';
+    }
     public static function form(Schema $schema): Schema
     {
         return JustificacionForm::configure($schema);
@@ -33,8 +40,8 @@ class JustificacionResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array

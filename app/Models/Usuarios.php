@@ -26,7 +26,7 @@ class Usuarios extends Model
     // 1. Instancia (Relación a otro modelo)
     public function instance(): BelongsTo
     {
-        return $this->belongsTo(Instancias::class, 'departamento','id');
+        return $this->belongsTo(Instancias::class, 'departamento', 'id');
     }
 
     // 2. Horario de Trabajo
@@ -55,7 +55,7 @@ class Usuarios extends Model
     // 5. Justificantes
     public function justifications(): HasMany
     {
-        return $this->hasMany(Justificacion::class);
+        return $this->hasMany(Justificacion::class, 'usuario', 'usuario');
     }
 
     // --- LÓGICA DE NEGOCIO ---
@@ -93,5 +93,4 @@ class Usuarios extends Model
         // Asumiendo que tu tabla de registros tiene 'usuario' como llave foránea
         return $this->hasMany(Registros::class, 'usuario', 'usuario');
     }
-
 }

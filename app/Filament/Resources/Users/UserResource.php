@@ -14,13 +14,20 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
-
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
+    protected static ?string $title = 'Usuario';
+    protected static ?string $navigationLabel = 'Usuarios';
+    protected static ?string $pluralModelLabel = 'Usuarios';
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Sistema';
+    }
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);
@@ -34,8 +41,8 @@ class UserResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Usuarios\Pages;
 use App\Filament\Resources\Usuarios\UsuariosResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Contracts\Support\Htmlable;
 
 class EditUsuarios extends EditRecord
 {
@@ -12,8 +13,11 @@ class EditUsuarios extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            DeleteAction::make(),
-        ];
+        return [DeleteAction::make()];
+    }
+    public function getTitle(): string|Htmlable
+    {
+        $nombre = $this->record->nombre ?? 'Registro';
+        return "Editar {$nombre}";
     }
 }

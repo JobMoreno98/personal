@@ -21,7 +21,7 @@ class JustificacionForm
         return $schema->components([
             Hidden::make('fechayhora')->default(fn() => Carbon::now()),
 
-            Select::make('usuario')->label('Usuario')->disabledOn('edit')->relationship('user', 'nombre')->searchable()->preload()->required()->reactive()->afterStateUpdated(fn($set) => $set('justificante', null)),
+            Select::make('usuario')->label('Empleado')->disabledOn('edit')->relationship('user', 'nombre')->searchable()->preload()->required()->reactive()->afterStateUpdated(fn($set) => $set('justificante', null)),
 
             Select::make('justificante')
                 ->label('justificante')

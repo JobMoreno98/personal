@@ -192,10 +192,10 @@
                 @else
                     @if ($item['estado'] && $item['estado'] != 'EN CURSO')
                         <div class="badge-multiline"
-                            style="margin-top: 15px; color: {{ $item['estado'] == 'DESCANSO' ? '#000' : 'black' }}">
+                            style="color: {{ $item['estado'] == 'DESCANSO' ? '#000' : 'black' }}">
                             <span
                                 style="background-color: {{ $item['color'] }}; width:5px;heigth:3px;border-radius:50%">&nbsp;</span>
-                            {{ $item['estado'] }}
+                            {!!  $item['estado'] !!}
                         </div>
                         @if (is_string($item['detalle']))
                             {{-- Pintamos el mensaje de "Registro en día de descanso" --}}

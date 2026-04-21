@@ -20,6 +20,13 @@ class StatusUsuarioResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
+
+    
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Sistema';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return StatusUsuarioForm::configure($schema);
@@ -33,8 +40,8 @@ class StatusUsuarioResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array

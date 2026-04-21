@@ -14,12 +14,16 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
-
 class HorarioResource extends Resource
 {
     protected static ?string $model = HorarioMateria::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Académico';
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -34,8 +38,8 @@ class HorarioResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array

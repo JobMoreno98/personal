@@ -14,7 +14,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
-
 class InstanciasResource extends Resource
 {
     protected static ?string $model = Instancias::class;
@@ -22,6 +21,11 @@ class InstanciasResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static ?string $recordTitleAttribute = 'Instancias';
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Sistema';
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -36,8 +40,8 @@ class InstanciasResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array

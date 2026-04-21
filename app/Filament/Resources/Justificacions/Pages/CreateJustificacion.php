@@ -6,11 +6,17 @@ use App\Filament\Resources\Justificacions\JustificacionResource;
 use App\Models\Registros;
 use Carbon\Carbon;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Log;
 
 class CreateJustificacion extends CreateRecord
 {
     protected static string $resource = JustificacionResource::class;
+
+    public function getTitle(): string|Htmlable
+    {
+        return 'Crear Justificante';
+    }
 
     protected function afterCreate(): void
     {
