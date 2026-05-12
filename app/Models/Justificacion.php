@@ -31,6 +31,11 @@ class Justificacion extends Model
         return $this->hasOne(JustificantePeriodo::class, 'folio', 'folio');
     }
 
+    public function fracciones()
+    {
+        return $this->hasMany(JustificanteFracciones::class, 'id', 'justificante_id');
+    }
+
     // app/Models/Justificacion.php
 
     protected static function booted()

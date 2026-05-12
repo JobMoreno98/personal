@@ -15,7 +15,7 @@ class JustificanteLista extends Model
         return $this->belongsToMany(
             TipoUsuario::class,
             'justificantes_tipousuarios',
-            'justificante_id',            
+            'justificante_id',
             'tipousuario_id'
         );
     }

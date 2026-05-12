@@ -149,7 +149,7 @@
                     $dias_asistidos++;
                 }
 
-                if ($item['estado'] === 'Justificado') {
+                if (str_contains($item['estado'],'Justificado')) {
                     $dias_justificados++;
                     $total_segundos_justificados += $cargaEsperadaHoy;
                 }

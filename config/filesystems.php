@@ -66,7 +66,7 @@ return [
             'username' => env('SFTP_USER', 'cta'),
             'password' => env('SFTP_PASS'),
             'root' => env('SFTP_FOTOS'),
-            'url' => '/personal/public/admin/fotos-perfil',
+            'url' => '/admin/fotos-perfil',
             'port' => 22,
             'timeout' => 30,
             'visibility' => 'public',
