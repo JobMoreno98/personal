@@ -8,6 +8,7 @@ use App\Filament\Resources\Usuarios\Pages\ListUsuarios;
 use App\Filament\Resources\Usuarios\RelationManagers\RegistrosRelationManager;
 use App\Filament\Resources\Usuarios\Schemas\UsuariosForm;
 use App\Filament\Resources\Usuarios\Tables\UsuariosTable;
+use App\Filament\Widgets\CalendarioAsistenciaWidget;
 use App\Models\Usuarios;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -26,7 +27,7 @@ class UsuariosResource extends Resource
     protected static ?string $title = 'Empleado';
     protected static ?string $navigationLabel = 'Empleados';
     protected static ?string $pluralModelLabel = 'Empleados';
-protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 1;
     public static function getNavigationGroup(): ?string
     {
         return 'Administrativo';
@@ -41,12 +42,13 @@ protected static ?int $navigationSort = 1;
     {
         return UsuariosTable::configure($table);
     }
-
+    /*
     public static function getRelations(): array
     {
         return [RegistrosRelationManager::class];
     }
 
+*/
     public static function getPages(): array
     {
         return [

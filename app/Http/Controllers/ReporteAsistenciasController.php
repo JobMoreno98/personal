@@ -284,7 +284,7 @@ class ReporteAsistenciasController extends Controller
         return in_array((string) $claveDiaUsuario, $diasLaborales, true);
     }
 
-    private function obetenrClausula(Carbon $fecha, array $diasLaborales): bool
+    private function obetenerClausula(Carbon $fecha, array $diasLaborales): bool
     {
         $claveDiaUsuario = $fecha->dayOfWeek + 1;
 
