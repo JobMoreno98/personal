@@ -316,13 +316,29 @@ class ReporteAsistenciasController extends Controller
             //dd($justificaciones);
             return ['Justificado <br/>' . $justificaciones, '#0dcaf0', null];
         }
-
+        $fueraTiempo = null;
         // Si tiene registros (checó tarjeta)
         if ($datosDia) {
+            /*
             // VALIDACIÓN NUEVA: Si checó pero es su día de descanso (no hay horario)
             if (!$esDiaLaboral || !$horarioEntradaStr || !$horarioSalidaStr) {
                 return ['Día Libre Trabajado', '#198754', 'Registro en día de descanso'];
             }
+*/
+            if (is_null($horarioEntradaStr) || is_null($horarioSalidaStr)) {
+                $horarioEntradaStr = explode(" ", $datosDia->first()->fechahora)[1];
+                $horarioSalidaStr = explode(" ", $datosDia->last()->fechahora)[1];
+                $fueraTiempo = true;
+                /*
+                dd(
+                    $fecha,
+                    $datosDia,
+                    $horarioEntradaStr, // Ya estamos seguros de que no es null aquí
+                    $horarioSalidaStr, // Ya estamos seguros de que no es null aquí
+                    $minutosTolerancia,
+                );*/
+            }
+
 
             // Si checó y sí es día laboral, evaluamos normal
             return $this->evaluarAsistencia(
@@ -331,6 +347,7 @@ class ReporteAsistenciasController extends Controller
                 $horarioEntradaStr, // Ya estamos seguros de que no es null aquí
                 $horarioSalidaStr, // Ya estamos seguros de que no es null aquí
                 $minutosTolerancia,
+                $fueraTiempo,
             );
         }
 
@@ -342,7 +359,7 @@ class ReporteAsistenciasController extends Controller
         return $this->evaluarDiaSinRegistro($fecha, $esDiaLaboral);
     }
 
-    private function evaluarAsistencia(Carbon $fecha, $datosDia, string $horarioEntradaStr, string $horarioSalidaStr, int $minutosTolerancia): array
+    private function evaluarAsistencia(Carbon $fecha, $datosDia, string $horarioEntradaStr, string $horarioSalidaStr, int $minutosTolerancia, $fueraTiempo): array
     {
         $entrada = $datosDia->first();
         $salida = $datosDia->last();
@@ -363,6 +380,11 @@ class ReporteAsistenciasController extends Controller
             $estado = 'Asistencia';
             $color = '#28a745';
         }
+        if ($fueraTiempo) {
+            $estado = 'Registro en día de descanso';
+            $color = '#198754';
+        }
+
         return [
             $estado,
             $color,
