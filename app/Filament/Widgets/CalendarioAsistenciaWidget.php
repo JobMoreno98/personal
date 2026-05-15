@@ -257,6 +257,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
     {
         $entradaReal = Carbon::parse($datosDia->first()->fechahora)->timezone('America/Mexico_City');
         $salidaReal = Carbon::parse($datosDia->last()->fechahora)->timezone('America/Mexico_City');
+        
         $entradaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioEntradaStr);
         $salidaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr);
 

@@ -186,14 +186,13 @@
                         <span class="hora-row">
                             <span class="lbl">S - </span>
                             @if ($item['detalle']['tiempo'] <= '00:05:00')
-                                --:--:--
+                                {{ $item['detalle']['salida'] }}
                                 @php
                                     $item['detalle']['tiempo'] = '--:--:--';
                                     $item['estado'] = 'Sin Registro';
                                     $total_segundos_reales -= $seg;
                                     $dias_asistidos--;
                                     $errores++;
-                                    $item['color'] = 'red';
                                 @endphp
                             @else
                                 {{ $item['detalle']['salida'] }}
