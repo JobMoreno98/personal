@@ -260,10 +260,21 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         $entradaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioEntradaStr);
         $salidaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr);
 
+        // Calculamos la diferencia en segundos entre los dos registros
+        $diferenciaSegundos = $entradaReal->diffInSeconds($salidaReal);
+
+        $salidaParaMostrar = $salidaReal->format('H:i:s');
+
+        // Si la diferencia es de 5 minutos (300 segundos) o menos
+        if ($diferenciaSegundos <= 300) {
+            $salidaParaMostrar = '--:--:--';
+        }
+
+        // Lógica original de estados (Retardo, Salida Anticipada, Asistencia)
         if ($entradaReal->gt($entradaIdeal->copy()->addMinutes($minutosTolerancia))) {
             $estado = 'Retardo';
             $color = '#e0a800';
-        } elseif ($salidaReal->lt($salidaIdeal) && !$entradaReal->eq($salidaReal)) {
+        } elseif ($salidaParaMostrar !== '--:--:--' && $salidaReal->lt($salidaIdeal)) {
             $estado = 'Salida Anticipada';
             $color = '#17a2b8';
         } else {
@@ -271,12 +282,26 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
             $color = '#28a745';
         }
 
+        // Si la salida se marcó como inválida, el estado debería reflejar que falta la salida real
+        if ($salidaParaMostrar === '--:--:--' && !$fueraTiempo) {
+            $estado = 'Falta Salida';
+            $color = '#fd7e14'; // Naranja para advertencia
+        }
+
         if ($fueraTiempo) {
             $estado = 'Registro en día de descanso';
             $color = '#198754';
         }
 
-        return [$estado, $color, ['entrada' => $entradaReal->format('H:i:s'), 'salida' => $salidaReal->format('H:i:s'), 'tiempo' => $entradaReal->diff($salidaReal)->format('%H:%I:%S')]];
+        return [
+            $estado,
+            $color,
+            [
+                'entrada' => $entradaReal->format('H:i:s'),
+                'salida' => $salidaParaMostrar, // Aquí pasamos el valor validado
+                'tiempo' => $entradaReal->diff($salidaReal)->format('%H:%I:%S')
+            ]
+        ];
     }
 
     private function evaluarDiaSinRegistro(Carbon $fecha, bool $esDiaLaboral): array

@@ -101,9 +101,6 @@
                     if (!empty($calendario)) {
                         $primerItem = $calendario[0];
                         $diaSemanaCarbon = \Carbon\Carbon::parse($primerItem['fecha_str'])->dayOfWeek;
-
-                        // Ajuste matemático para semana en Lunes:
-                        // Lunes=0, Martes=1... Domingo=6
                         $espaciosVacios = ($diaSemanaCarbon + 6) % 7;
                     } else {
                         $espaciosVacios = 0;
@@ -132,6 +129,7 @@
                             <div class="time-info">
                                 <strong style="color: {{ $item['color'] }}">E:</strong>
                                 {{ $item['detalle']['entrada'] }}<br>
+                              
                                 <strong style="color: {{ $item['color'] }}">S:</strong>
                                 {{ $item['detalle']['salida'] }}
                             </div>
