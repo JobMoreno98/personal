@@ -307,6 +307,7 @@ class ReporteAsistenciasController extends Controller
 
         if ($this->esJustificado($datosDia)) {
             //dd($usuario);
+            $fecha = $fecha->format('Y-m-d');
             $justificaciones = Justificacion::where('usuario', $usuario->usuario)
                 ->whereHas('periodo', function ($query) use ($fecha) {
                     $query->where('fecha_inicial', '<=', $fecha)->where('fecha_final', '>=', $fecha);
