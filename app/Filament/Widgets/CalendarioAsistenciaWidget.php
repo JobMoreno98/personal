@@ -21,6 +21,7 @@ use Filament\Schemas\Components\Grid as ComponentsGrid;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Illuminate\Support\Facades\DB;
 
 class CalendarioAsistenciaWidget extends Widget implements HasForms
 {
@@ -217,12 +218,20 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
     }
 
     // Recibe $justificacionesPrecargadas en vez de hacer queries
-    private function resolverEstadoDia(Carbon $fecha, $datosDia, bool $esDiaLaboral, ?string $horarioEntradaStr, ?string $horarioSalidaStr, int $minutosTolerancia, array $esFestivo, $justificacionesPrecargadas): array
-    {
+    private function resolverEstadoDia(
+        Carbon $fecha,
+        $datosDia,
+        bool $esDiaLaboral,
+        ?string $horarioEntradaStr,
+        ?string $horarioSalidaStr,
+        int $minutosTolerancia,
+        array $esFestivo,
+        $justificacionesPrecargadas
+    ): array {
         if ($esFestivo[0]) return [$esFestivo[1], '#6f42c1', null];
 
-        // LÓGICA DE JUSTIFICACIONES EN RAM (Toma 0.001 segundos)
-        if ($datosDia && $datosDia->contains(fn($r) => $r->tipo === 'justificado')) {
+        if ($this->esJustificado($datosDia, $fecha, $justificacionesPrecargadas)) {
+
             $nombreJustificacion = 'Justificado';
 
             $justificacionMatch = $justificacionesPrecargadas->first(function ($just) use ($fecha) {
@@ -257,7 +266,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
     {
         $entradaReal = Carbon::parse($datosDia->first()->fechahora)->timezone('America/Mexico_City');
         $salidaReal = Carbon::parse($datosDia->last()->fechahora)->timezone('America/Mexico_City');
-        
+
         $entradaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioEntradaStr);
         $salidaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr);
 
@@ -311,5 +320,21 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         if ($fecha->lt(Carbon::today())) return ['FALTA', '#dc3545', null];
         if ($fecha->isToday()) return ['EN CURSO', '#6c757d', null];
         return ['PENDIENTE', 'transparent', null];
+    }
+
+    private function esJustificado($datosDia, $fecha, $justificacionesPrecargadas): bool
+    {
+        $fecha = $fecha->format('Y-m-d');
+
+        //$justificante = DB::table('justificaciones')->where('fecha_inicial', '>=', $fecha)->where('fecha_final', '<=', $fecha)->exists();
+
+        //dd( $justificacionesPrecargadas);
+
+        $justificante = collect($justificacionesPrecargadas)->contains(function ($j) use ($fecha) {
+            //dd($j->periodo);
+            return $fecha >= $j->periodo->fecha_inicial && $fecha <= $j->periodo->fecha_final;
+        });
+
+        return ($datosDia && $datosDia->contains(fn($r) => $r->tipo === 'justificado')) || $justificante;
     }
 }

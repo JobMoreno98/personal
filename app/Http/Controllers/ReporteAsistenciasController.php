@@ -14,6 +14,7 @@ use App\Models\TipoEvento;
 use App\Models\Usuarios;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonPeriod;
+use Illuminate\Support\Facades\DB;
 use ZipArchive;
 
 class ReporteAsistenciasController extends Controller
@@ -51,6 +52,10 @@ class ReporteAsistenciasController extends Controller
             ->groupBy(function ($registro) {
                 return Carbon::parse($registro->fechahora)->setTimezone('America/Mexico_City')->format('Y-m-d');
             });
+
+        $justificacionesUsuario = Justificacion::with(['tipo', 'periodo'])
+            ->where('usuario', $request->usuario)
+            ->get();
 
         // 2. Creamos un mapa de horarios.
         // Llave = Día de la semana (1 a 7), Valor = Arreglo con entrada y salida
@@ -113,10 +118,19 @@ class ReporteAsistenciasController extends Controller
 
             $tipoEvento = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
             $esFestivo = $this->esFestivo($tipoEvento);
-            $esJustificado = $this->esJustificado($datosDia);
 
             // 5. Pasamos las horas específicas al resolverEstadoDia
-            [$estado, $color, $detalle] = $this->resolverEstadoDia($fechaActual, $datosDia, $esDiaLaboral, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $esFestivo, $usuario);
+            [$estado, $color, $detalle] = $this->resolverEstadoDia(
+                $fechaActual,
+                $datosDia,
+                $esDiaLaboral,
+                $horarioEntradaStr,
+                $horarioSalidaStr,
+                $minutosTolerancia,
+                $esFestivo,
+                $usuario,
+                $justificacionesUsuario
+            );
 
             //dd($datosDia, $estado);
             $calendario[$nombreMes][] = [
@@ -300,12 +314,15 @@ class ReporteAsistenciasController extends Controller
         int $minutosTolerancia,
         array $esFestivo,
         Usuarios $usuario,
+        $justificacionesUsuario
     ): array {
         if ($esFestivo[0]) {
             return [$esFestivo[1], '#6f42c1', null];
         }
 
-        if ($this->esJustificado($datosDia)) {
+        if ($this->esJustificado($datosDia, $fecha, $justificacionesUsuario)) {
+
+
             //dd($usuario);
             $fecha = $fecha->format('Y-m-d');
             $justificaciones = Justificacion::where('usuario', $usuario->usuario)
@@ -318,7 +335,7 @@ class ReporteAsistenciasController extends Controller
             return ['Justificado <br/>' . $justificaciones, '#0dcaf0', null];
         }
         $fueraTiempo = null;
-        // Si tiene registros (checó tarjeta)
+        // Si tiene registros
         if ($datosDia) {
             /*
             // VALIDACIÓN NUEVA: Si checó pero es su día de descanso (no hay horario)
@@ -364,7 +381,7 @@ class ReporteAsistenciasController extends Controller
     {
         $entradaReal = Carbon::parse($datosDia->first()->fechahora)->timezone('America/Mexico_City');
         $salidaReal = Carbon::parse($datosDia->last()->fechahora)->timezone('America/Mexico_City');
-        
+
         $entradaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioEntradaStr);
         $salidaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr);
 
@@ -440,9 +457,20 @@ class ReporteAsistenciasController extends Controller
         $tipos = TipoEvento::select('nombre')->get()->pluck('nombre');
         return [$tipos->contains($tipo), $tipo];
     }
-    private function esJustificado($datosDia): bool
+    private function esJustificado($datosDia, $fecha, $justificacionesPrecargadas): bool
     {
-        return $datosDia && $datosDia->contains(fn($r) => $r->tipo === 'justificado');
+        $fecha = $fecha->format('Y-m-d');
+
+        //$justificante = DB::table('justificaciones')->where('fecha_inicial', '>=', $fecha)->where('fecha_final', '<=', $fecha)->exists();
+
+        //dd( $justificacionesPrecargadas);
+
+        $justificante = collect($justificacionesPrecargadas)->contains(function ($j) use ($fecha) {
+            //dd($j->periodo);
+            return $fecha >= $j->periodo->fecha_inicial && $fecha <= $j->periodo->fecha_final;
+        });
+
+        return ($datosDia && $datosDia->contains(fn($r) => $r->tipo === 'justificado')) || $justificante;
     }
 
     public function reporteFaltasDepartamento(Request $request)
@@ -739,6 +767,11 @@ class ReporteAsistenciasController extends Controller
                         $todosLosDiasLaborales[] = $dia;
                     }
                 }
+
+                $justificacionesUsuario = Justificacion::with(['tipo', 'periodo'])
+                    ->where('usuario', $usuario->usuario)
+                    ->get();
+
                 $todosLosDiasLaborales = array_unique($todosLosDiasLaborales);
 
                 $periodo = CarbonPeriod::create($inicio, $fin);
@@ -773,9 +806,18 @@ class ReporteAsistenciasController extends Controller
                     $esDiaLaboral = $this->esDiaLaboral($fechaActual, $todosLosDiasLaborales);
                     $tipoEvento = $this->obtenerEventoDelDia($fechaActual, $eventosPorFecha);
                     $esFestivo = $this->esFestivo($tipoEvento);
-                    $esJustificado = $this->esJustificado($datosDia);
 
-                    [$estado, $color, $detalle] = $this->resolverEstadoDia($fechaActual, $datosDia, $esDiaLaboral, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $esFestivo, $usuario);
+                    [$estado, $color, $detalle] = $this->resolverEstadoDia(
+                        $fechaActual,
+                        $datosDia,
+                        $esDiaLaboral,
+                        $horarioEntradaStr,
+                        $horarioSalidaStr,
+                        $minutosTolerancia,
+                        $esFestivo,
+                        $usuario,
+                        $justificacionesUsuario
+                    );
 
                     $calendario[$nombreMes][] = [
                         'fecha' => $fechaActual,

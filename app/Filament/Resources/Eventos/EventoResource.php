@@ -24,6 +24,7 @@ class EventoResource extends Resource
     protected static ?string $navigationLabel = 'Eventos';
     protected static ?string $pluralModelLabel = 'Eventos';
     protected static ?int $navigationSort = 3;
+
     public static function getNavigationGroup(): ?string
     {
         return 'Administrativo';
