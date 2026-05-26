@@ -33,7 +33,6 @@ class JustificacionForm
             Select::make('usuario')->label('Empleado')->disabledOn('edit')->relationship('user', 'nombre')->searchable()->preload()->required()->reactive()->afterStateUpdated(fn($set) => $set('justificante', null)),
 
             Select::make('justificante')
-
                 ->label('Justificante')
                 ->options(function ($get) {
                     $userId = $get('usuario');
@@ -64,36 +63,32 @@ class JustificacionForm
                     return JustificanteLista::find($justificante)?->descripcion_gral ?? 'Sin descripción';
                 })
                 ->reactive(),
-                
+
             Select::make('fraccion')->label('Fracción')
                 ->options(function ($get) {
 
                     $justificante = $get('justificante');
                     if (!$justificante) {
-                        return ['N/A'];
+                       return ['na' => 'N/A'];
                     }
 
                     $lista = JustificanteFracciones::where('justificante_id', $justificante)->get();
 
                     if ($lista->isEmpty()) {
-                        return ['N/A'];
+                        return ['na' => 'N/A'];
                     }
-
-                    return $lista->pluck('categoria', 'id');
+                    return $lista->pluck('categoria', 'fraccion');
                 })
                 ->disabled(
                     fn($get, $record) =>
                     !$get('justificante') ||
                         $record?->aprobado ||
                         !JustificanteFracciones::where('justificante_id', $get('justificante'))->exists()
-                )
-                ->required(
-                    fn($get) =>
-                    $get('justificante') &&
-                        JustificanteFracciones::where('justificante_id', $get('justificante'))->exists()
-                )
-                ->searchable(),
-
+                )->rules([
+                    fn($get) => JustificanteFracciones::where('justificante_id', $get('justificante'))->exists()
+                        ? 'required'
+                        : null,
+                ]),
             Section::make('Periodo del justificante')
                 ->relationship('periodo')
                 ->schema([
