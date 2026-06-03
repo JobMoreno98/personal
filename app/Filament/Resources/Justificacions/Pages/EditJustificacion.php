@@ -26,6 +26,7 @@ class EditJustificacion extends EditRecord
     {
         parent::mount($record);
     }
+    
     protected function beforeSave(): void
     {
         // Bloqueo de seguridad: si YA estaba aprobado en la base de datos, no permitir cambios

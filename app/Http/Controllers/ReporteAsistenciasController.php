@@ -6,7 +6,6 @@ use App\Models\Evento;
 use App\Models\Horario;
 use App\Models\Instancias;
 use App\Models\Justificacion;
-use App\Models\JustificantePeriodo;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\Registros;
@@ -14,7 +13,6 @@ use App\Models\TipoEvento;
 use App\Models\Usuarios;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonPeriod;
-use Illuminate\Support\Facades\DB;
 use ZipArchive;
 
 class ReporteAsistenciasController extends Controller
@@ -167,6 +165,7 @@ class ReporteAsistenciasController extends Controller
 
         return $pdf->stream();
     }
+    
     public function departamento(Request $request)
     {
         $request->validate([

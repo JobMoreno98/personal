@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Usuarios;
 use App\Models\Registros;
 use App\Models\Evento;
 use App\Models\TipoEvento;
@@ -15,13 +14,9 @@ use Carbon\CarbonPeriod;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Grid;
 use Filament\Schemas\Components\Grid as ComponentsGrid;
 // NUEVOS IMPORTS PARA LAS ACCIONES
 use Filament\Actions\Action;
-use Filament\Actions\Concerns\InteractsWithActions;
-use Filament\Actions\Contracts\HasActions;
-use Illuminate\Support\Facades\DB;
 
 class CalendarioAsistenciaWidget extends Widget implements HasForms
 {
@@ -139,9 +134,6 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         }
         $todosLosDiasLaborales = array_unique($todosLosDiasLaborales);
 
-        // =========================================================================
-        // AQUI ESTA LA MAGIA: CARGAMOS TODO A MEMORIA RAM PARA EVITAR N+1
-        // =========================================================================
         $periodo = CarbonPeriod::create($inicio, $fin);
 
         // A) Eventos precargados
@@ -184,7 +176,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
             // Validar festivo sin ir a BD
             $esFestivo = [$tiposEventosFestivos->contains($tipoEvento), $tipoEvento];
 
-            [$estado, $color, $detalle] = $this->resolverEstadoDia(
+            [$estado, $color, $detalle, $registrosJustificados] = ($this->resolverEstadoDia(
                 $fechaActual,
                 $datosDia,
                 $esDiaLaboral,
@@ -193,7 +185,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
                 $minutosTolerancia,
                 $esFestivo,
                 $justificacionesUsuario // Pasamos la colección a memoria
-            );
+            ));
 
             $calendario[] = [
                 'dia'        => $fechaActual->day,
@@ -203,6 +195,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
                 'color'      => $color,
                 'detalle'    => $detalle,
                 'es_laboral' => $esDiaLaboral,
+                'regsitros' => $registrosJustificados
             ];
         }
 
@@ -228,9 +221,21 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         array $esFestivo,
         $justificacionesPrecargadas
     ): array {
-        if ($esFestivo[0]) return [$esFestivo[1], '#6f42c1', null];
+        if ($esFestivo[0]) return [$esFestivo[1], '#6f42c1', null, null];
 
         if ($this->esJustificado($datosDia, $fecha, $justificacionesPrecargadas)) {
+            $string = null;
+            $regsitrosDias = $datosDia->where('tipo', '!=', 'justificado');
+            if ($regsitrosDias->count() > 0) {
+                $inicio = Carbon::parse($regsitrosDias->first()->fechahora)->setTimezone('America/Mexico_City');
+                $fin = Carbon::parse($regsitrosDias->last()->fechahora)->setTimezone('America/Mexico_City');
+                $string = "E - " . $inicio->format('H:m:i');
+                $diff = $inicio->diff($fin);
+                $segundos = ($diff->h * 3600) + ($diff->i * 60) + $diff->s;
+                if ($segundos >= 300) {                    
+                    $string = $string . "<br/> S - " . $fin->format('H:m:i') . "<br/>";
+                }
+            }
 
             $nombreJustificacion = 'Justificado';
 
@@ -245,7 +250,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
                 $nombreJustificacion = $justificacionMatch->tipo->nombre;
             }
 
-            return ['Justificado: ' . $nombreJustificacion, '#0dcaf0', null];
+            return ['Justificado : ' . $nombreJustificacion, '#0dcaf0', null,$string];
         }
 
         $fueraTiempo = null;
@@ -258,7 +263,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
             return $this->evaluarAsistencia($fecha, $datosDia, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $fueraTiempo);
         }
 
-        if ($datosDia && $datosDia->count() === 1) return ['Error', '#fd7e14', null];
+        if ($datosDia && $datosDia->count() === 1) return ['Error', '#fd7e14', null, null];
         return $this->evaluarDiaSinRegistro($fecha, $esDiaLaboral);
     }
 
@@ -270,17 +275,14 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         $entradaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioEntradaStr);
         $salidaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr);
 
-        // Calculamos la diferencia en segundos entre los dos registros
         $diferenciaSegundos = $entradaReal->diffInSeconds($salidaReal);
 
         $salidaParaMostrar = $salidaReal->format('H:i:s');
 
-        // Si la diferencia es de 5 minutos (300 segundos) o menos
         if ($diferenciaSegundos <= 300) {
             $salidaParaMostrar = '--:--:--';
         }
 
-        // Lógica original de estados (Retardo, Salida Anticipada, Asistencia)
         if ($entradaReal->gt($entradaIdeal->copy()->addMinutes($minutosTolerancia))) {
             $estado = 'Retardo';
             $color = '#e0a800';
@@ -310,28 +312,23 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
                 'entrada' => $entradaReal->format('H:i:s'),
                 'salida' => $salidaParaMostrar, // Aquí pasamos el valor validado
                 'tiempo' => $entradaReal->diff($salidaReal)->format('%H:%I:%S')
-            ]
+            ],
+            null
         ];
     }
 
     private function evaluarDiaSinRegistro(Carbon $fecha, bool $esDiaLaboral): array
     {
-        if (!$esDiaLaboral) return ['DESCANSO', '#f3f4f6', null];
-        if ($fecha->lt(Carbon::today())) return ['FALTA', '#dc3545', null];
-        if ($fecha->isToday()) return ['EN CURSO', '#6c757d', null];
-        return ['PENDIENTE', 'transparent', null];
+        if (!$esDiaLaboral) return ['DESCANSO', '#f3f4f6', null , null];
+        if ($fecha->lt(Carbon::today())) return ['FALTA', '#dc3545', null, null];
+        if ($fecha->isToday()) return ['EN CURSO', '#6c757d', null, null];
+        return ['PENDIENTE', 'transparent', null, null];
     }
 
     private function esJustificado($datosDia, $fecha, $justificacionesPrecargadas): bool
     {
         $fecha = $fecha->format('Y-m-d');
-
-        //$justificante = DB::table('justificaciones')->where('fecha_inicial', '>=', $fecha)->where('fecha_final', '<=', $fecha)->exists();
-
-        //dd( $justificacionesPrecargadas);
-
         $justificante = collect($justificacionesPrecargadas)->contains(function ($j) use ($fecha) {
-            //dd($j->periodo);
             return $fecha >= $j->periodo->fecha_inicial && $fecha <= $j->periodo->fecha_final;
         });
 

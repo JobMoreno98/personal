@@ -115,12 +115,12 @@
                 @foreach ($calendario as $item)
                     <div class="day-box"
                         style="background-color: {{ $item['estado'] === 'DESCANSO' ? 'transparent' : 'rgba(128,128,128,0.03)' }};">
-
                         <div class="day-number"
                             style="color: {{ $item['color'] === '#f3f4f6' || $item['color'] === 'transparent' ? 'inherit' : $item['color'] }}">
                             {{ $item['dia'] }} <span
                                 style="font-size: 0.65rem; font-weight: normal; opacity: 0.7;">{{ ucfirst(\Carbon\Carbon::parse($item['fecha_str'])->locale('es')->isoFormat('MMM')) }}</span>
                         </div>
+
 
                         @if ($item['detalle'])
                             <div class="status-badge" style="background-color: {{ $item['color'] }}">
@@ -129,7 +129,7 @@
                             <div class="time-info">
                                 <strong style="color: {{ $item['color'] }}">E:</strong>
                                 {{ $item['detalle']['entrada'] }}<br>
-                              
+
                                 <strong style="color: {{ $item['color'] }}">S:</strong>
                                 {{ $item['detalle']['salida'] }}
                             </div>
@@ -141,6 +141,11 @@
                             @elseif ($item['estado'] === 'DESCANSO')
                                 <div style="font-size: 0.7rem; color: #888; margin-top: auto;">Descanso</div>
                             @endif
+                        @endif
+                                                @if ($item['regsitros'])
+                            <div class="time-info">
+                                {!! $item['regsitros'] !!}
+                            </div>
                         @endif
                     </div>
                 @endforeach
