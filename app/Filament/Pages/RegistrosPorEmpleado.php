@@ -22,11 +22,11 @@ class RegistrosPorEmpleado extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $recordTitleAttribute = 'Regsitros por empelados';
+    protected static ?string $recordTitleAttribute = 'Registros por empleados';
 
-    protected static ?string $title = 'Regsitros por empelados';
-    protected static ?string $navigationLabel = 'Regsitros por empelados';
-    protected static ?string $pluralModelLabel = 'Regsitros por empelados';
+    protected static ?string $title = 'Registros por empleados';
+    protected static ?string $navigationLabel = 'Registros por empleados';
+    protected static ?string $pluralModelLabel = 'Registros por empleados';
     protected static ?int $navigationSort = 5;
     
     public static function getNavigationGroup(): ?string

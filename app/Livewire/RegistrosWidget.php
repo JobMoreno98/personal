@@ -51,7 +51,6 @@ class RegistrosWidget extends TableWidget
                     ->disk('servidor_capturas')
 
                     ->getStateUsing(function ($record) {
-                        // Regla de negocio
                         if ($record->tipo !== 'teclado') {
                             return null;
                         }
