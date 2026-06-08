@@ -20,6 +20,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use AlizHarb\ActivityLog\ActivityLogPlugin;
 use App\Filament\Resources\Usuarios\UsuariosResource;
+use Filament\Support\Enums\Width;
 use Jacobtims\FilamentLogger\FilamentLoggerPlugin;
 
 class AdminPanelProvider extends PanelProvider
@@ -47,6 +48,6 @@ class AdminPanelProvider extends PanelProvider
             ->plugins([FilamentLoggerPlugin::make()])
             ->middleware([EncryptCookies::class, AddQueuedCookiesToResponse::class, StartSession::class, AuthenticateSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class, SubstituteBindings::class, DisableBladeIconComponents::class, DispatchServingFilamentEvent::class])
             ->authMiddleware([Authenticate::class])
-            ->homeUrl(fn() => UsuariosResource::getUrl('index'));
+            ->homeUrl(fn() => UsuariosResource::getUrl('index'))->maxContentWidth(Width::Full);
     }
 }
