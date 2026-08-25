@@ -211,61 +211,77 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
     }
 
     // Recibe $justificacionesPrecargadas en vez de hacer queries
-    private function resolverEstadoDia(
-        Carbon $fecha,
-        $datosDia,
-        bool $esDiaLaboral,
-        ?string $horarioEntradaStr,
-        ?string $horarioSalidaStr,
-        int $minutosTolerancia,
-        array $esFestivo,
-        $justificacionesPrecargadas
-    ): array {
-        if ($esFestivo[0]) return [$esFestivo[1], '#6f42c1', null, null];
+private function resolverEstadoDia(
+    Carbon $fecha,
+    $datosDia,
+    bool $esDiaLaboral,
+    ?string $horarioEntradaStr,
+    ?string $horarioSalidaStr,
+    int $minutosTolerancia,
+    array $esFestivo,
+    $justificacionesPrecargadas
+): array {
+    if ($esFestivo[0]) return [$esFestivo[1], '#6f42c1', null, null];
 
-        if ($this->esJustificado($datosDia, $fecha, $justificacionesPrecargadas)) {
-            $string = null;
-            $regsitrosDias = $datosDia->where('tipo', '!=', 'justificado');
-            if ($regsitrosDias->count() > 0) {
-                $inicio = Carbon::parse($regsitrosDias->first()->fechahora)->setTimezone('America/Mexico_City');
-                $fin = Carbon::parse($regsitrosDias->last()->fechahora)->setTimezone('America/Mexico_City');
-                $string = "E - " . $inicio->format('H:m:i');
-                $diff = $inicio->diff($fin);
-                $segundos = ($diff->h * 3600) + ($diff->i * 60) + $diff->s;
-                if ($segundos >= 300) {                    
-                    $string = $string . "<br/> S - " . $fin->format('H:m:i') . "<br/>";
-                }
+    // Convertimos datos a colección para manejarlo seguro en toda la función
+    $datosDiaCol = collect($datosDia);
+
+    if ($this->esJustificado($datosDiaCol, $fecha, $justificacionesPrecargadas)) {
+        $string = null;
+        
+        $regsitrosDias = $datosDiaCol->where('tipo', '!=', 'justificado');
+        
+        if ($regsitrosDias->count() > 0) {
+            $inicio = Carbon::parse($regsitrosDias->first()->fechahora)->setTimezone('America/Mexico_City');
+            $fin = Carbon::parse($regsitrosDias->last()->fechahora)->setTimezone('America/Mexico_City');
+            
+            // CORRECCIÓN: H:i:s en lugar de H:m:i
+            $string = "E - " . $inicio->format('H:i:s'); 
+            
+            // CORRECCIÓN: Uso de diffInSeconds de Carbon
+            $segundos = $inicio->diffInSeconds($fin);
+            
+            if ($segundos >= 300) {                    
+                $string .= "<br/> S - " . $fin->format('H:i:s') . "<br/>";
             }
+        }
 
-            $nombreJustificacion = 'Justificado';
+        $nombreJustificacion = 'Justificado';
 
-            $justificacionMatch = $justificacionesPrecargadas->first(function ($just) use ($fecha) {
-                if (!$just->periodo) return false;
-                $fInicio = Carbon::parse($just->periodo->fecha_inicial)->startOfDay();
-                $fFin = Carbon::parse($just->periodo->fecha_final)->endOfDay();
-                return $fecha->between($fInicio, $fFin);
-            });
+        $justificacionMatch = $justificacionesPrecargadas->first(function ($just) use ($fecha) {
+            if (!$just->periodo) return false;
+            $fInicio = Carbon::parse($just->periodo->fecha_inicial)->startOfDay();
+            $fFin = Carbon::parse($just->periodo->fecha_final)->endOfDay();
+            return $fecha->between($fInicio, $fFin);
+        });
 
-            if ($justificacionMatch && $justificacionMatch->tipo) {
-                $nombreJustificacion = $justificacionMatch->tipo->nombre;
-            }
+        if ($justificacionMatch && $justificacionMatch->tipo) {
+            $nombreJustificacion = $justificacionMatch->tipo->nombre;
+        }
 
-            return ['Justificado : ' . $nombreJustificacion, '#0dcaf0', null,$string];
+        return ['Justificado : ' . $nombreJustificacion, '#0dcaf0', null, $string];
+    }
+
+    // CORRECCIÓN: Reestructuración de la lógica de asistencia
+    if ($datosDiaCol->isNotEmpty()) {
+        
+        // Primero verificamos si hay un error (solo 1 registro)
+        if ($datosDiaCol->count() === 1) {
+            return ['Error', '#fd7e14', null, null];
         }
 
         $fueraTiempo = null;
-        if ($datosDia) {
-            if (is_null($horarioEntradaStr) || is_null($horarioSalidaStr)) {
-                $horarioEntradaStr = explode(" ", $datosDia->first()->fechahora)[1];
-                $horarioSalidaStr = explode(" ", $datosDia->last()->fechahora)[1];
-                $fueraTiempo = true;
-            }
-            return $this->evaluarAsistencia($fecha, $datosDia, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $fueraTiempo);
+        if (is_null($horarioEntradaStr) || is_null($horarioSalidaStr)) {
+            $horarioEntradaStr = explode(" ", $datosDiaCol->first()->fechahora)[1];
+            $horarioSalidaStr = explode(" ", $datosDiaCol->last()->fechahora)[1];
+            $fueraTiempo = true;
         }
-
-        if ($datosDia && $datosDia->count() === 1) return ['Error', '#fd7e14', null, null];
-        return $this->evaluarDiaSinRegistro($fecha, $esDiaLaboral);
+        
+        return $this->evaluarAsistencia($fecha, $datosDia, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $fueraTiempo);
     }
+
+    return $this->evaluarDiaSinRegistro($fecha, $esDiaLaboral);
+}
 
     private function evaluarAsistencia(Carbon $fecha, $datosDia, string $horarioEntradaStr, string $horarioSalidaStr, int $minutosTolerancia, $fueraTiempo): array
     {
