@@ -165,7 +165,7 @@ class ReporteAsistenciasController extends Controller
 
         return $pdf->stream();
     }
-    
+
     public function departamento(Request $request)
     {
         $request->validate([
@@ -319,7 +319,7 @@ class ReporteAsistenciasController extends Controller
             return [$esFestivo[1], '#6f42c1', null];
         }
 
-        if ($this->esJustificado($datosDia, $fecha, $justificacionesUsuario)) {
+        if ($this->esJustificado($datosDia, $fecha, $justificacionesUsuario,$esDiaLaboral)) {
 
 
             //dd($usuario);
@@ -456,20 +456,20 @@ class ReporteAsistenciasController extends Controller
         $tipos = TipoEvento::select('nombre')->get()->pluck('nombre');
         return [$tipos->contains($tipo), $tipo];
     }
-    private function esJustificado($datosDia, $fecha, $justificacionesPrecargadas): bool
+    private function esJustificado($datosDia, $fecha, $justificacionesPrecargadas, bool $esDiaLaboral): bool
     {
         $fecha = $fecha->format('Y-m-d');
 
-        //$justificante = DB::table('justificaciones')->where('fecha_inicial', '>=', $fecha)->where('fecha_final', '<=', $fecha)->exists();
+        $tieneRegistroJustificado = $datosDia && $datosDia->contains(fn($r) => $r->tipo === 'justificado');
 
-        //dd( $justificacionesPrecargadas);
-
-        $justificante = collect($justificacionesPrecargadas)->contains(function ($j) use ($fecha) {
-            //dd($j->periodo);
-            return $fecha >= $j->periodo->fecha_inicial && $fecha <= $j->periodo->fecha_final;
+        // Solo cuenta el rango del justificante si el día realmente es laboral para el empleado
+        $dentroDeRangoJustificante = $esDiaLaboral && collect($justificacionesPrecargadas)->contains(function ($j) use ($fecha) {
+            return $j->periodo
+                && $fecha >= $j->periodo->fecha_inicial
+                && $fecha <= $j->periodo->fecha_final;
         });
 
-        return ($datosDia && $datosDia->contains(fn($r) => $r->tipo === 'justificado')) || $justificante;
+        return $tieneRegistroJustificado || $dentroDeRangoJustificante;
     }
 
     public function reporteFaltasDepartamento(Request $request)
