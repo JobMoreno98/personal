@@ -94,10 +94,12 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
     {
         $usuario = $this->record;
 
+
         if (!$usuario) return ['error' => 'Widget solo para perfiles.'];
 
         $usuario->loadMissing('horarios');
         if ($usuario->horarios->isEmpty()) return ['error' => 'Sin horarios asignados.'];
+
 
         $fechaInicioStr = $this->data['fechaInicio'] ?? Carbon::now()->startOfMonth()->format('Y-m-d');
         $fechaFinStr    = $this->data['fechaFin'] ?? Carbon::now()->endOfMonth()->format('Y-m-d');
@@ -106,6 +108,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         $fin    = Carbon::parse($fechaFinStr)->setTimezone('America/Mexico_City')->endOfDay();
 
         if ($inicio->gt($fin)) return ['error' => 'La fecha inicial no puede ser mayor a la final.'];
+
         if ($inicio->diffInDays($fin) > 60) return ['error' => 'Rango máximo permitido de 60 días.'];
 
         $usuarioId = $usuario->usuario;
@@ -263,11 +266,22 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         }
 
         // CORRECCIÓN: Reestructuración de la lógica de asistencia
+
         if ($datosDiaCol->isNotEmpty()) {
 
             // Primero verificamos si hay un error (solo 1 registro)
             if ($datosDiaCol->count() === 1) {
-                return ['Error', '#fd7e14', null, null];
+                $unicoRegistro = $datosDiaCol->first();
+                $horaIdeal = $horarioEntradaStr ? Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioEntradaStr) : null;
+                $horaReal = Carbon::parse($unicoRegistro->fechahora)->timezone('America/Mexico_City');
+
+                // Si la única checada está más cerca de la hora de entrada esperada, asumimos que fue la entrada
+                $esEntrada = !$horaIdeal || $horaReal->diffInMinutes($horaIdeal) < $horaReal->diffInMinutes(
+                    Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr)
+                );
+
+                $estado = $esEntrada ? 'Falta Salida' : 'Falta Entrada';
+                return [$estado, '#fd7e14', ['entrada' => $esEntrada ? $horaReal->format('H:i:s') : '--:--:--', 'salida' => $esEntrada ? '--:--:--' : $horaReal->format('H:i:s')], null];
             }
 
             $fueraTiempo = null;
