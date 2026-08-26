@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class CreateJustificacion extends CreateRecord
 {
