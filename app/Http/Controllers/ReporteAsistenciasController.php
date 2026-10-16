@@ -44,7 +44,7 @@ class ReporteAsistenciasController extends Controller
         $fin = $request->hasta ? Carbon::parse($request->hasta) : Carbon::now()->endOfMonth();
 
         $registros = Registros::where('usuario', $request->usuario)
-            ->whereBetween('fechahora', [$inicio->copy()->startOfDay()->setTimezone('UTC'), $fin->copy()->endOfDay()->setTimezone('UTC')])
+            ->whereBetween('fechahora', [$inicio->copy()->startOfDay()->setTimezone('America/Mexico_City'), $fin->copy()->endOfDay()->setTimezone('America/Mexico_City')])
             ->orderBy('fechahora')
             ->get()
             ->groupBy(function ($registro) {
@@ -746,7 +746,7 @@ class ReporteAsistenciasController extends Controller
                 $fin = Carbon::parse($request->hasta);
 
                 $registros = Registros::where('usuario', $usuario->usuario)
-                    ->whereBetween('fechahora', [$inicio->copy()->startOfDay()->setTimezone('UTC'), $fin->copy()->endOfDay()->setTimezone('UTC')])
+                    ->whereBetween('fechahora', [$inicio->copy()->startOfDay()->setTimezone('America/Mexico_City'), $fin->copy()->endOfDay()->setTimezone('America/Mexico_City')])
                     ->orderBy('fechahora')
                     ->get()
                     ->groupBy(function ($registro) {

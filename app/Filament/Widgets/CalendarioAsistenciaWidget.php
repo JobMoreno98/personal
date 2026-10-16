@@ -116,8 +116,8 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         // 1. EXTRAER REGISTROS
         $registros = Registros::where('usuario', $usuarioId)
             ->whereBetween('fechahora', [
-                $inicio->copy()->setTimezone('UTC')->format('Y-m-d H:i:s'),
-                $fin->copy()->setTimezone('UTC')->format('Y-m-d H:i:s')
+                $inicio->copy()->setTimezone('America/Mexico_City')->format('Y-m-d H:i:s'),
+                $fin->copy()->setTimezone('America/Mexico_City')->format('Y-m-d H:i:s')
             ])
             ->orderBy('fechahora')
             ->get()
@@ -187,8 +187,10 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
                 $horarioSalidaStr,
                 $minutosTolerancia,
                 $esFestivo,
-                $justificacionesUsuario // Pasamos la colección a memoria
+                $justificacionesUsuario
             ));
+
+            //dd($estado, $color, $detalle, $registrosJustificados);
 
             $calendario[] = [
                 'dia'        => $fechaActual->day,
@@ -201,13 +203,11 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
                 'regsitros' => $registrosJustificados
             ];
         }
+       
 
         return ['calendario' => $calendario, 'usuario' => $usuario];
     }
 
-    // =========================================================================
-    // MÉTODOS AUXILIARES OPTIMIZADOS
-    // =========================================================================
     private function esDiaLaboral(Carbon $fecha, array $diasLaborales): bool
     {
         return in_array((string) ($fecha->dayOfWeek + 1), $diasLaborales, true);
@@ -291,9 +291,10 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
                 $fueraTiempo = true;
             }
 
+            //dd($this->evaluarAsistencia($fecha, $datosDia, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $fueraTiempo));
+
             return $this->evaluarAsistencia($fecha, $datosDia, $horarioEntradaStr, $horarioSalidaStr, $minutosTolerancia, $fueraTiempo);
         }
-
         return $this->evaluarDiaSinRegistro($fecha, $esDiaLaboral);
     }
 
@@ -302,8 +303,12 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
         $entradaReal = Carbon::parse($datosDia->first()->fechahora)->timezone('America/Mexico_City');
         $salidaReal = Carbon::parse($datosDia->last()->fechahora)->timezone('America/Mexico_City');
 
+
+
         $entradaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioEntradaStr);
         $salidaIdeal = Carbon::parse($fecha->format('Y-m-d') . ' ' . $horarioSalidaStr);
+
+        //dd($entradaReal, $salidaReal, $entradaIdeal, $salidaIdeal,$fueraTiempo, $entradaReal->diffInSeconds($salidaReal)<= 300);
 
         $diferenciaSegundos = $entradaReal->diffInSeconds($salidaReal);
 
@@ -323,6 +328,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
             $estado = 'Asistencia';
             $color = '#28a745';
         }
+        //dd(($salidaParaMostrar === '--:--:--' && !$fueraTiempo));
 
         // Si la salida se marcó como inválida, el estado debería reflejar que falta la salida real
         if ($salidaParaMostrar === '--:--:--' && !$fueraTiempo) {
@@ -340,7 +346,7 @@ class CalendarioAsistenciaWidget extends Widget implements HasForms
             $color,
             [
                 'entrada' => $entradaReal->format('H:i:s'),
-                'salida' => $salidaParaMostrar, // Aquí pasamos el valor validado
+                'salida' => $salidaParaMostrar, 
                 'tiempo' => $entradaReal->diff($salidaReal)->format('%H:%I:%S')
             ],
             null
